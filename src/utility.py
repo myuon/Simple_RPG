@@ -6,6 +6,8 @@ from pygame.locals import *
 
 import os
 
+SCREEN = Rect(0, 0, 640, 480)
+
 def load_image(filename, colorkey=None):
     filename = os.path.join("../data", filename)
     try:
@@ -48,11 +50,18 @@ class Pos(object):
     def __sub__(self, other):
         return Pos(self.x - other.x, self.y - other.y)
     
+    def __div__(self, other):
+        return Pos(self.x / other.x, self.y / other.y)
+    
     def __str__(self):
         return "({0}, {1})".format(self.x, self.y)
 
     def to_tuple(self):
         return (self.x, self.y)
+
+    @staticmethod
+    def from_tuple((x,y)):
+        return Pos(x,y)
 
 class BookMarker(object):
     def __init__(self, limit, interval=1):

@@ -31,7 +31,7 @@ class Chara(object):
         screen.blit(self.image, self.pos.to_tuple(), area=self.size)
 
 class Player(Chara):
-    def __init__(self, path, pos=(0,0), size=(32, 48), offset=(0,0)):
+    def __init__(self, path, pos=(SCREEN.width/2, SCREEN.height/2), size=(32, 48), offset=(0,0)):
         self.pos = Pos(pos[0], pos[1])
         self.size = Rect(0, 0, size[0], size[1])
         self.index = BookMarker(4, interval=15)
@@ -42,8 +42,10 @@ class Player(Chara):
             self.image.append((seq[1], seq[0], seq[1], seq[2]))
         
         self.direction = DOWN
+        
+    def locate(self): return (self.pos - Pos(0, 32)).to_tuple()
 
     def draw(self, screen):
-        screen.blit(self.image[self.direction][self.index()], (self.pos - Pos(0, 32)).to_tuple(), area=self.size)
+        screen.blit(self.image[self.direction][self.index()], self.locate(), area=self.size)
         self.index.next()
         

@@ -10,7 +10,6 @@ import field_chara as fc
 import field
 
 GAME_TITLE = u"GIAPRO"
-SCREEN = Rect(0, 0, 640, 480)
 
 class GameFrame(object):
     def __init__(self, GAME_TITLE, SCREEN):
@@ -48,10 +47,10 @@ class GameFrame(object):
 class System(GameFrame):
     def __init__(self):
         super(System, self).__init__(GAME_TITLE, SCREEN)
-        self.player = fc.Player("vx_chara01_a.png", pos=(32,48))
-        self.map = field.Map("map.txt")
-        
-    def key_event(self):
+        self.player = fc.Player("vx_chara01_a.png")
+        self.map = field.ScrollMap("map.txt")
+
+    def key_step(self):
         step = (0, 0)
         if self.key[K_UP]: step = (0, -1)
         elif self.key[K_DOWN]: step = (0, 1)
@@ -63,10 +62,10 @@ class System(GameFrame):
         while self._step() != -1:
             self.map.draw(self.screen)
             self.player.draw(self.screen)
-
-            step = self.key_event()
-            if step != (0, 0) and self.map.is_steppable(self.map.block_pos(self.player.move_pos(step))):
-                self.player.move(step)
+            
+            step = self.key_step()
+            self.map.move(step, self.player.pos.to_tuple())
+            self.player.move_pos(step)
 
 if __name__ == "__main__":
     game = System()
