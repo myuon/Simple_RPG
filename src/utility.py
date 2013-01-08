@@ -7,6 +7,7 @@ from pygame.locals import *
 import os
 
 SCREEN = Rect(0, 0, 640, 480)
+DOWN, LEFT, RIGHT, UP = 0, 1, 2, 3
 
 def load_image(filename, colorkey=None):
     filename = os.path.join("../data", filename)
@@ -39,6 +40,25 @@ def split_image(image, size, times, offset):
         images.append(colimages)
     return images
     
+
+def step_dir(step):
+    direction = None
+    if step == (1, 0): direction = RIGHT
+    elif step == (-1, 0): direction = LEFT
+    elif step == (0, -1): direction = UP
+    elif step == (0, 1): direction = DOWN
+    
+    return direction
+
+def dir_step(direction):
+    step = (0, 0)
+    if direction == RIGHT: step = (1, 0)
+    elif direction == LEFT: step = (-1, 0)
+    elif direction == UP: step = (0, -1)
+    elif direction == DOWN: step = (0, 1)
+    
+    return step
+
 class Pos(object):
     def __init__(self, x, y):
         self.x = x
@@ -49,6 +69,9 @@ class Pos(object):
     
     def __sub__(self, other):
         return Pos(self.x - other.x, self.y - other.y)
+    
+    def __mul__(self, other):
+        return Pos(self.x * other.x, self.y * other.y)
     
     def __div__(self, other):
         return Pos(self.x / other.x, self.y / other.y)
@@ -63,14 +86,21 @@ class Pos(object):
     def from_tuple((x,y)):
         return Pos(x,y)
 
-class BookMarker(object):
+class IndexMarker(object):
     def __init__(self, limit, interval=1):
         self.index = 0
         self.max = limit
         self.interval = interval
+        self.enable = False
         
     def next(self):
         self.index = (self.index+1)%(self.interval*self.max)
+        
+    def inactive(self):
+        self.enable = False
+        
+    def active(self):
+        self.enable = True
 
     def __call__(self):
         return (self.index/self.interval)%self.max
