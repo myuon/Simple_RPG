@@ -21,51 +21,22 @@ def load_image(filename, colorkey=None):
         image.set_colorkey(colorkey, RLEACCEL)
     return image
 
-def split_image(image, size, offset):
+def split_image(image, size, times, offset):
     images = []
     area = image.get_size()
 
-    for i in range(0, area[0], size[0]):
-        surface = pygame.Surface(area)
-        surface.blit(image, (0,0), (i+offset[0],offset[1],size[0],size[1]))
-        surface.set_colorkey(surface.get_at((0,0)), RLEACCEL)
-        surface.convert()
-        images.append(surface)
+    offset = (offset[0]*size[0]*3, offset[1]*size[1]*4)
+    for col in range(times[1]):
+        colimages = []
+        for row in range(times[0]):
+            surface = pygame.Surface(area)
+            surface.blit(image, (0,0), (row*size[0]+offset[0],col*size[1]+offset[1],size[0],size[1]))
+            surface.set_colorkey(surface.get_at((0,0)), RLEACCEL)
+            surface.convert()
+            colimages.append(surface)
+        images.append(colimages)
     return images
     
-class GameFrame(object):
-    def __init__(self, GAME_TITLE, SCREEN):
-        pygame.init()
-        pygame.display.set_caption(GAME_TITLE)
-
-        self.screen = pygame.display.set_mode(SCREEN.size)
-        self.key = []
-        self.clock=pygame.time.Clock()
-    
-    def event(self):
-        for event in pygame.event.get():
-            if event.type==QUIT: return -1
-        if self.key[K_ESCAPE]: return -1
-        
-    def _step(self):
-        pygame.display.update()
-
-        self.key = pygame.key.get_pressed()
-        self.clock.tick(60)
-        
-        if self.event() == -1: return -1
-
-        self.screen.fill((0,0,60))
-        return 0
-        
-    def mainloop(self):
-        while self._step() != -1:
-            pass
-
-    def quit(self):
-        pygame.display.quit()
-        pygame.quit()
-
 class Pos(object):
     def __init__(self, x, y):
         self.x = x
@@ -74,9 +45,37 @@ class Pos(object):
     def __add__(self, other):
         return Pos(self.x + other.x, self.y + other.y)
     
+    def __sub__(self, other):
+        return Pos(self.x - other.x, self.y - other.y)
+    
     def __str__(self):
         return "({0}, {1})".format(self.x, self.y)
 
     def to_tuple(self):
         return (self.x, self.y)
+
+class BookMarker(object):
+    def __init__(self, limit, interval=1):
+        self.index = 0
+        self.max = limit
+        self.interval = interval
+        
+    def next(self):
+        self.index = (self.index+1)%(self.interval*self.max)
+
+    def __call__(self):
+        return (self.index/self.interval)%self.max
+
+class Manager(object):
+    def __init__(self):
+        self.todo = []
+    
+    def add(self, x):
+        self.todo.append(x)
+    
+    def get(self):
+        return self.todo
+
+    def execute(self):
+        pass
 
