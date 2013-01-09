@@ -47,8 +47,12 @@ class GameFrame(object):
 class System(GameFrame):
     def __init__(self):
         super(System, self).__init__(GAME_TITLE, SCREEN)
-        self.player = fc.Player("vx_chara01_a.png")
         self.map = field.ScrollMap("map.txt")
+        
+        self.map.add_chara(fc.Player("vx_chara01_a.png"), is_player=True)
+        self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(4,3), chara=(2,0)))
+        self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(5,3), chara=(1,1)))
+        self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(6,3), chara=(3,1)))
 
     def key_step(self):
         step = (0, 0)
@@ -60,12 +64,8 @@ class System(GameFrame):
 
     def mainloop(self):
         while self._step() != -1:
-            self.map.draw(self.screen)
-            self.player.draw(self.screen)
-            
-            step = self.key_step()
-            self.map.move(step, self.player.pos.to_tuple())
-            self.player.move_pos(step)
+            self.map.run(self.screen)
+            self.map.move(self.key_step())
 
 if __name__ == "__main__":
     game = System()

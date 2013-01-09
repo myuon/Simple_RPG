@@ -54,12 +54,33 @@ class ScrollMarker(IndexMarker):
         if self.index == 0: self.inactive()
         return self.enable
 
+class CharaManager(Manager):
+    def __init__(self):
+        self.objects = []
+        self.player = None
+        
+    def add(self, chara, is_player):
+        if is_player: self.player = chara
+        else: self.objects.append(chara)
+
+    def run(self, screen, offset, scroll):
+        for i in self.objects:
+            i.draw(screen, offset, scroll)
+        self.player.draw(screen)
+        
+    def move(self, step):
+        self.player.move_dir(step)
+
 class ScrollMap(Map):
     def __init__(self, filename, offset=(-9,-6)):
         super(ScrollMap, self).__init__(filename)
         self.offset = offset
-        self.pixels = ScrollMarker(self.size.width, interval=1, step=4)
+        self.scroll = ScrollMarker(self.size.width, interval=1, step=4)
+        self.charas = CharaManager()
 
+    def add_chara(self, chara, is_player=False):
+        self.charas.add(chara, is_player)
+        
     def draw_tip(self, screen, col, row):
         locate = self.offset[1]+col, self.offset[0]+row
         if 0 <= locate[0] < self.data_size[0] and 0 <= locate[1] < self.data_size[1]:
@@ -67,7 +88,7 @@ class ScrollMap(Map):
         else:
             tip = self.default
         f,(x,y) = self.map_to_map[tip]
-        px, py = self.pixels()
+        px, py = self.scroll()
         screen.blit(self.image[f], (row*self.size.width+px, col*self.size.height+py), area=self.size.move(x,y))
 
     def is_steppable(self,(x,y)):
@@ -79,14 +100,21 @@ class ScrollMap(Map):
         if tip == self.default: return False
         else: return tip not in self.block
     
-    def move(self, step, pos):
-        if self.pixels.enable:
-            if self.pixels.next() == False:
-                step_ = dir_step(self.pixels.direction)
+    def map_move(self, step):
+        if self.scroll.enable:
+            if self.scroll.next() == False:
+                step_ = dir_step(self.scroll.direction)
                 self.offset = self.offset[0]+step_[0], self.offset[1]+step_[1]
         else:
-            pos_ = (Pos.from_tuple(self.offset) + Pos.from_tuple(step) + Pos.from_tuple(pos)/Pos.from_tuple(self.size.size)).to_tuple()
-            if step != (0,0) and self.is_steppable(pos_):
-                self.pixels.active()
-                self.pixels.direction = step_dir(step)
+            pos = tuple([self.offset[i] + step[i] + self.charas.player.pos[i] for i in [0,1]])
+            if step != (0,0) and self.is_steppable(pos):
+                self.scroll.active()
+                self.scroll.direction = step_dir(step)
 
+    def move(self, step):
+        self.map_move(step)
+        self.charas.move(step)
+        
+    def run(self, screen):
+        self.draw(screen)
+        self.charas.run(screen, self.offset, self.scroll())

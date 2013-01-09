@@ -59,33 +59,6 @@ def dir_step(direction):
     
     return step
 
-class Pos(object):
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-    
-    def __add__(self, other):
-        return Pos(self.x + other.x, self.y + other.y)
-    
-    def __sub__(self, other):
-        return Pos(self.x - other.x, self.y - other.y)
-    
-    def __mul__(self, other):
-        return Pos(self.x * other.x, self.y * other.y)
-    
-    def __div__(self, other):
-        return Pos(self.x / other.x, self.y / other.y)
-    
-    def __str__(self):
-        return "({0}, {1})".format(self.x, self.y)
-
-    def to_tuple(self):
-        return (self.x, self.y)
-
-    @staticmethod
-    def from_tuple((x,y)):
-        return Pos(x,y)
-
 class IndexMarker(object):
     def __init__(self, limit, interval=1):
         self.index = 0
@@ -107,14 +80,14 @@ class IndexMarker(object):
 
 class Manager(object):
     def __init__(self):
-        self.todo = []
+        self.objects = []
     
     def add(self, x):
-        self.todo.append(x)
+        self.objects.append(x)
     
     def get(self):
-        return self.todo
+        return self.objects
 
-    def execute(self):
+    def run(self):
         pass
 
