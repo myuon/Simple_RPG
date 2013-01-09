@@ -6,6 +6,8 @@ from pygame.locals import *
 
 from utility import *
 
+import random
+
 class Chara(object):
     def __init__(self, path, pos, size, offset):
         self.pos = pos
@@ -48,9 +50,13 @@ class Player(Chara):
     def move(self): pass
     
 class NPC(Player):
-    def __init__(self, path, pos=(1,1), size=(32, 48), chara=(0,0)):
+    def __init__(self, path, pos=(1,1), size=(32, 48), chara=(0,0), movable=False):
         super(NPC, self).__init__(path, pos, size, chara)
-        
+        self.movable = movable
+        self.scroll = (0, 0)
+        if self.movable:
+            self.move_step = ScrollMarker(self.size.width, interval=1, step=1, stop=100)
+
     def draw(self, screen, offset, scroll):
         screen.blit(self.image[self.direction][self.index()], tuple([self.locate(offset)[i]+scroll[i] for i in [0,1]]), area=self.size)
         self.index.next()
@@ -58,6 +64,19 @@ class NPC(Player):
     def pixel_pos(self, offset): return (self.pos[0]-offset[0])*UNIT, (self.pos[1]-offset[1])*UNIT
     def locate(self, offset):
         pos = self.pixel_pos(offset)
-        return pos[0], pos[1]-UNIT/2
+        return pos[0]-self.scroll[0], pos[1]-UNIT/2-self.scroll[1]
 
-    def move(self): pass
+    def move(self, neighbors):
+        if neighbors == []: return None
+
+        if self.move_step.enable:
+            if self.move_step.next() == False:
+                sx, sy = dir_step(self.direction)
+                self.pos = self.pos[0]+sx, self.pos[1]+sy
+            self.scroll = self.move_step()
+
+        else:
+            self.move_step.active()
+            self.move_step.direction = step_dir(random.choice(neighbors))
+            self.direction = self.move_step.direction
+            

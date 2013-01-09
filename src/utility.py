@@ -66,6 +66,9 @@ class IndexMarker(object):
         self.interval = interval
         self.enable = False
         
+    def reset(self):
+        self.index = 0
+    
     def next(self):
         self.index = (self.index+1)%(self.interval*self.max)
         
@@ -77,6 +80,38 @@ class IndexMarker(object):
 
     def __call__(self):
         return (self.index/self.interval)%self.max
+
+class DummyMarker(IndexMarker):
+    def __init__(self):
+        self.enable = False
+        self.index = 0
+        
+    def reset(self): pass
+    def next(self): pass
+    def __call__(self): return 0
+
+class ScrollMarker(IndexMarker):
+    def __init__(self, limit, interval=1, step=1, stop=100):
+        super(ScrollMarker, self).__init__(limit, interval)
+        self.direction = None
+        self.step = step
+        self.stop = IndexMarker(stop) if stop>0 else DummyMarker()
+    
+    def __call__(self):
+        idx = super(ScrollMarker, self).__call__()
+        sx, sy = dir_step(self.direction)
+        return (-sx)*idx, (-sy)*idx
+    
+    def next(self):
+        if self.stop.enable == True:
+            self.stop.next()
+            if self.stop.index == 0: self.stop.inactive()
+        else:
+            self.index = (self.index+self.step)%(self.interval*self.max)
+            if self.index == 0:
+                self.inactive()
+                self.stop.active()
+        return self.enable
 
 class Manager(object):
     def __init__(self):

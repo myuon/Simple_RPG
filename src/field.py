@@ -38,22 +38,6 @@ class Map(object):
     def block_pos(self,(x,y)):
         return x/self.size.width, y/self.size.height
     
-class ScrollMarker(IndexMarker):
-    def __init__(self, limit, interval=1, step=1):
-        super(ScrollMarker, self).__init__(limit, interval)
-        self.direction = None
-        self.step = step
-    
-    def __call__(self):
-        idx = super(ScrollMarker, self).__call__()
-        sx, sy = dir_step(self.direction)
-        return (-sx)*idx, (-sy)*idx
-    
-    def next(self):
-        self.index = (self.index+self.step)%(self.interval*self.max)
-        if self.index == 0: self.inactive()
-        return self.enable
-
 class CharaManager(Manager):
     def __init__(self):
         self.objects = []
@@ -68,14 +52,16 @@ class CharaManager(Manager):
             i.draw(screen, offset, scroll)
         self.player.draw(screen)
         
-    def move(self, step):
+    def move(self, step, lookup):
         self.player.move_dir(step)
+        for i in self.objects:
+            if i.movable: i.move(lookup(i.pos))
 
 class ScrollMap(Map):
     def __init__(self, filename, offset=(-9,-6)):
         super(ScrollMap, self).__init__(filename)
         self.offset = offset
-        self.scroll = ScrollMarker(self.size.width, interval=1, step=4)
+        self.scroll = ScrollMarker(self.size.width, interval=1, step=4, stop=0)
         self.charas = CharaManager()
 
     def add_chara(self, chara, is_player=False):
@@ -113,8 +99,12 @@ class ScrollMap(Map):
 
     def move(self, step):
         self.map_move(step)
-        self.charas.move(step)
+        self.charas.move(step, self.lookup_safe)
         
     def run(self, screen):
         self.draw(screen)
         self.charas.run(screen, self.offset, self.scroll())
+        
+    def lookup_safe(self, pos):
+        return [(x,y) for x,y in [(1,0),(-1,0),(0,1),(0,-1)] \
+                      if self.is_steppable((pos[0]+x, pos[1]+y))]

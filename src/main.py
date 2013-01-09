@@ -50,7 +50,7 @@ class System(GameFrame):
         self.map = field.ScrollMap("map.txt")
         
         self.map.add_chara(fc.Player("vx_chara01_a.png"), is_player=True)
-        self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(4,3), chara=(2,0)))
+        self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(4,3), chara=(2,0), movable=True))
         self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(5,3), chara=(1,1)))
         self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(6,3), chara=(3,1)))
 
