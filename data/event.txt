@@ -1,4 +1,4 @@
- CHARA,king,2,1,0,0,しろが　ないぞよ。
- CHARA,minister,3,1,0,1,はやく　しろを　たててくだされ。
- CHARA,soldier,4,1,0,1,ぶきは　そうびしないと　いみがないぞ。
-
+#type,name,x,y,dir,movable,message 
+CHARA,king,2,1,0,1,しろが　ないぞよ。
+CHARA,minister,3,2,0,1,はやく　しろを　たててくだされ。
+CHARA,soldier,4,1,0,1,ぶきは　そうびしないと　いみがないぞ。

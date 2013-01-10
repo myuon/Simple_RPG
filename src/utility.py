@@ -119,13 +119,13 @@ class ScrollMarker(IndexMarker):
 
 class Manager(object):
     def __init__(self):
-        self.objects = []
+        self.tickets = []
     
     def add(self, x):
-        self.objects.append(x)
+        self.tickets.append(x)
     
     def get(self):
-        return self.objects
+        return self.tickets
 
     def run(self):
         pass

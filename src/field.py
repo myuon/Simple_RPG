@@ -60,13 +60,15 @@ class CharaManager(Manager):
         if is_player: self.player = chara
         else: self.objects.append(chara)
 
-    def move(self, step, lookup, event_map):
+    def move(self, step, offset, lookup, event_map, player_scroll):
+        event_map.update(self.player.pos_adjust(offset), self.player.pos_prev, player_scroll)
+        self.player.move(offset)
+
         self.player.move_dir(step)
         for i in self.objects:
             if i.movable:
-                @event_map.update(i, "get_pos", i.scroll)
-                def _move():
-                    i.move(lookup(i.pos))
+                i.move(lookup(i.pos))
+                event_map.update(i.pos, i.pos_prev, i.scroll)
 
 class MapEventManager(Manager):
     def __init__(self, col, row):
@@ -75,7 +77,6 @@ class MapEventManager(Manager):
         
     def add(self, info, pos): self.data[pos[1]][pos[0]] = info
     def delete(self, pos): self.data[pos[1]][pos[0]] = None
-        
     def get(self, pos): return self.data[pos[1]][pos[0]]
     
     def make_2D_array(self, col, row):
@@ -100,19 +101,13 @@ class MapEventManager(Manager):
                 if isinstance(data,field_chara.NPC): data.draw(screen, offset, scroll)
                 elif isinstance(data,field_chara.Player): data.draw(screen)
 
-    def update(self, instance, get_pos, scroll, *arg):
-        def _update(function):
-            pos_old = getattr(instance, get_pos)(*arg)
-            function()
-            scroll_norm = tuple([self.normalize(-scroll[i]) for i in [0,1]])
-            pos_adjust = tuple([pos_old[i] + scroll_norm[i] for i in [0,1]])
-            # pos_new = getattr(instance, get_pos)(*arg)
-
-            if UNIT/2 <= abs(scroll[0])+abs(scroll[1]) <= UNIT*3/4 and self.get(pos_old) is instance:
-                self.add(self.get(pos_old), pos_adjust)
-                self.delete(pos_old)
-            
-        return _update
+    def update(self, pos, pos_prev, scroll):
+        scroll_norm = tuple([self.normalize(-scroll[i]) for i in [0,1]])
+        pos_adjust = tuple([pos[i] + scroll_norm[i] for i in [0,1]])
+        
+        if pos == pos_adjust != pos_prev and scroll == (0, 0):
+            self.add(self.get(pos_prev), pos)
+            self.delete(pos_prev)
     
     def normalize(self, x):
         if x == 0: return 0
@@ -164,7 +159,5 @@ class ScrollMap(Map):
         self.event_map.draw(screen, self.offset, self.scroll())
 
     def move(self, step):
-        @self.event_map.update(self.charas.player, "pos_adjust", self.scroll(), self.offset)
-        def _move():
-            self.map_move(step)
-        self.charas.move(step, self.lookup_safe, self.event_map)
+        self.map_move(step)
+        self.charas.move(step, self.offset, self.lookup_safe, self.event_map, self.scroll())

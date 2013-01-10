@@ -41,6 +41,7 @@ class Player(Chara):
         super(Player, self).__init__(path, pos, size, chara)
         self.index = IndexMarker(4, interval=15)
         self.index.active()
+        self.pos_prev = (1, 1)
         
     def pixel_pos(self): return self.pos[0]*UNIT, self.pos[1]*UNIT
     def locate(self): return self.pixel_pos()[0], self.pixel_pos()[1]-UNIT/2
@@ -49,7 +50,8 @@ class Player(Chara):
         screen.blit(self.image[self.direction][self.index()], self.locate(), area=self.size)
         self.index.next()
         
-    def move(self): pass
+    def move(self, offset):
+        self.pos_prev = self.pos_adjust(offset)
     
     def pos_adjust(self, offset): return offset[0]+self.pos[0], offset[1]+self.pos[1]
     
@@ -72,6 +74,8 @@ class NPC(Player):
         return pos[0]-self.scroll[0], pos[1]-UNIT/2-self.scroll[1]
     
     def move(self, neighbors):
+        self.pos_prev = self.pos
+#        print self.pos, self.move_step.direction, self.direction, self.scroll, self.move_step.enable
         if neighbors == []: return None
 
         if self.move_step.enable:
