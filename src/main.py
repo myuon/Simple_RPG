@@ -51,7 +51,7 @@ class System(GameFrame):
         
         self.map.add_chara(fc.Player("vx_chara01_a.png"), is_player=True)
         self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(4,3), chara=(2,0), movable=True))
-        self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(5,3), chara=(1,1)))
+        self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(2,1), chara=(1,1), movable=True))
         self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(6,3), chara=(3,1)))
 
     def key_step(self):
@@ -64,7 +64,7 @@ class System(GameFrame):
 
     def mainloop(self):
         while self._step() != -1:
-            self.map.run(self.screen)
+            self.map.draw(self.screen)
             self.map.move(self.key_step())
 
 if __name__ == "__main__":

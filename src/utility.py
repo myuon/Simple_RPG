@@ -8,6 +8,7 @@ import os
 
 SCREEN = Rect(0, 0, 640, 480)
 DOWN, LEFT, RIGHT, UP = 0, 1, 2, 3
+UNIT = 32
 
 def load_image(filename, colorkey=None):
     filename = os.path.join("../data", filename)
@@ -103,15 +104,18 @@ class ScrollMarker(IndexMarker):
         return (-sx)*idx, (-sy)*idx
     
     def next(self):
-        if self.stop.enable == True:
+        if self.stop.enable:
             self.stop.next()
             if self.stop.index == 0: self.stop.inactive()
-        else:
+
+        if not self.stop.enable or isinstance(self.stop, DummyMarker):
             self.index = (self.index+self.step)%(self.interval*self.max)
             if self.index == 0:
                 self.inactive()
                 self.stop.active()
         return self.enable
+    
+    def is_stack(self): return self.stop.enable
 
 class Manager(object):
     def __init__(self):

@@ -4,7 +4,10 @@
 import pygame
 from pygame.locals import *
 
+from functools import wraps
+
 from utility import *
+import field_chara
 
 class Map(object):
     def __init__(self, filename):
@@ -24,7 +27,13 @@ class Map(object):
         return size, default, data
 
     def is_steppable(self,(x,y)):
-        return self.data[y][x] not in self.block
+        if 0 <= x < self.data_size[1] and 0 <= y < self.data_size[0]:
+            tip = self.data[y][x]
+        else:
+            tip = self.default
+
+        if tip == self.default: return False
+        else: return tip not in self.block
     
     def draw_tip(self, screen, col, row):
         f,(x,y) = self.map_to_map[self.data[col][row]]
@@ -38,6 +47,10 @@ class Map(object):
     def block_pos(self,(x,y)):
         return x/self.size.width, y/self.size.height
     
+    def lookup_safe(self, pos):
+        return [(x,y) for x,y in [(1,0),(-1,0),(0,1),(0,-1)] \
+                      if self.is_steppable((pos[0]+x, pos[1]+y))]
+
 class CharaManager(Manager):
     def __init__(self):
         self.objects = []
@@ -47,26 +60,81 @@ class CharaManager(Manager):
         if is_player: self.player = chara
         else: self.objects.append(chara)
 
-    def run(self, screen, offset, scroll):
-        for i in self.objects:
-            i.draw(screen, offset, scroll)
-        self.player.draw(screen)
-        
-    def move(self, step, lookup):
+    def move(self, step, lookup, event_map):
         self.player.move_dir(step)
         for i in self.objects:
-            if i.movable: i.move(lookup(i.pos))
+            if i.movable:
+                @event_map.update(i, "get_pos", i.scroll)
+                def _move():
+                    i.move(lookup(i.pos))
 
+class MapEventManager(Manager):
+    def __init__(self, col, row):
+        self.data = self.make_2D_array(col, row)
+        self.data_size = col, row
+        
+    def add(self, info, pos): self.data[pos[1]][pos[0]] = info
+    def delete(self, pos): self.data[pos[1]][pos[0]] = None
+        
+    def get(self, pos): return self.data[pos[1]][pos[0]]
+    
+    def make_2D_array(self, col, row):
+        array = []
+        for i in range(col):
+            array.append([None]*row)
+        return array
+
+    def is_steppable(self,(x,y)):
+        tip = None
+        if 0 <= x < self.data_size[1] and 0 <= y < self.data_size[0]:
+            tip = self.data[y][x]
+
+        return tip == None
+
+    def draw(self, screen, offset, scroll):
+        for i in range(self.data_size[1]):
+            for j in range(self.data_size[0]):
+                data = self.data[j][i]
+                if data is None: continue
+                
+                if isinstance(data,field_chara.NPC): data.draw(screen, offset, scroll)
+                elif isinstance(data,field_chara.Player): data.draw(screen)
+
+    def update(self, instance, get_pos, scroll, *arg):
+        def _update(function):
+            pos_old = getattr(instance, get_pos)(*arg)
+            function()
+            scroll_norm = tuple([self.normalize(-scroll[i]) for i in [0,1]])
+            pos_adjust = tuple([pos_old[i] + scroll_norm[i] for i in [0,1]])
+            # pos_new = getattr(instance, get_pos)(*arg)
+
+            if UNIT/2 <= abs(scroll[0])+abs(scroll[1]) <= UNIT*3/4 and self.get(pos_old) is instance:
+                self.add(self.get(pos_old), pos_adjust)
+                self.delete(pos_old)
+            
+        return _update
+    
+    def normalize(self, x):
+        if x == 0: return 0
+        elif x > 0: return 1
+        else: return -1
+
+    def reserve(self, pos):
+        self.data[pos[1]][pos[0]] = 1
+        
 class ScrollMap(Map):
     def __init__(self, filename, offset=(-9,-6)):
         super(ScrollMap, self).__init__(filename)
         self.offset = offset
         self.scroll = ScrollMarker(self.size.width, interval=1, step=4, stop=0)
         self.charas = CharaManager()
+        self.event_map = MapEventManager(self.data_size[0], self.data_size[1])
 
     def add_chara(self, chara, is_player=False):
         self.charas.add(chara, is_player)
-        
+        if is_player: self.event_map.add(chara, chara.pos_adjust(self.offset))
+        else: self.event_map.add(chara, chara.get_pos())
+
     def draw_tip(self, screen, col, row):
         locate = self.offset[1]+col, self.offset[0]+row
         if 0 <= locate[0] < self.data_size[0] and 0 <= locate[1] < self.data_size[1]:
@@ -78,14 +146,8 @@ class ScrollMap(Map):
         screen.blit(self.image[f], (row*self.size.width+px, col*self.size.height+py), area=self.size.move(x,y))
 
     def is_steppable(self,(x,y)):
-        if 0 <= x < self.data_size[1] and 0 <= y < self.data_size[0]:
-            tip = self.data[y][x]
-        else:
-            tip = self.default
+        return super(ScrollMap, self).is_steppable((x,y)) and self.event_map.is_steppable((x, y))
 
-        if tip == self.default: return False
-        else: return tip not in self.block
-    
     def map_move(self, step):
         if self.scroll.enable:
             if self.scroll.next() == False:
@@ -97,14 +159,12 @@ class ScrollMap(Map):
                 self.scroll.active()
                 self.scroll.direction = step_dir(step)
 
+    def draw(self, screen):
+        super(ScrollMap, self).draw(screen)
+        self.event_map.draw(screen, self.offset, self.scroll())
+
     def move(self, step):
-        self.map_move(step)
-        self.charas.move(step, self.lookup_safe)
-        
-    def run(self, screen):
-        self.draw(screen)
-        self.charas.run(screen, self.offset, self.scroll())
-        
-    def lookup_safe(self, pos):
-        return [(x,y) for x,y in [(1,0),(-1,0),(0,1),(0,-1)] \
-                      if self.is_steppable((pos[0]+x, pos[1]+y))]
+        @self.event_map.update(self.charas.player, "pos_adjust", self.scroll(), self.offset)
+        def _move():
+            self.map_move(step)
+        self.charas.move(step, self.lookup_safe, self.event_map)
