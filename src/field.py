@@ -161,3 +161,10 @@ class ScrollMap(Map):
     def move(self, step):
         self.map_move(step)
         self.charas.move(step, self.offset, self.lookup_safe, self.event_map, self.scroll())
+        
+    def pos_gazing(self):
+        return tuple([self.offset[i] + dir_step(self.charas.player.direction)[i] + self.charas.player.pos[i] for i in [0,1]])
+
+    def check(self):
+        return self.event_map.get(self.pos_gazing())
+

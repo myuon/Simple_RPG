@@ -8,8 +8,30 @@ from utility import *
 
 import field_chara as fc
 import field
+import layer
 
 GAME_TITLE = u"GIAPRO"
+
+class Scene(object):
+    def __init__(self):
+        self.scene = [
+                      "None",
+                      "Load",
+                      "Field",
+                      "Layer",
+                      "Battle"
+                      ]
+        self.current = "None"
+        
+    def transition(self, dest):
+        if dest not in self.scene:
+            print "Undefined scene name:", dest
+            raise SystemExit, "Illegal Transition Error"
+
+        self.current = dest
+
+    @property    
+    def name(self): return self.current
 
 class GameFrame(object):
     def __init__(self, GAME_TITLE, SCREEN):
@@ -19,6 +41,7 @@ class GameFrame(object):
         self.screen = pygame.display.set_mode(SCREEN.size)
         self.key = []
         self.clock=pygame.time.Clock()
+        self.scene = Scene()
     
     def _event(self):
         for event in pygame.event.get():
@@ -47,8 +70,10 @@ class GameFrame(object):
 
 class EventManager(Manager):
     def __init__(self, filename):
-        self.events = []
+        self.loaded_events = []
         self.load(filename)
+        self.events = {}
+        self.index = 0
         
     def make_data(self, data):
         data_ = data.split(",", 7)
@@ -70,36 +95,44 @@ class EventManager(Manager):
             raise SystemExit, "Type/Range Check Error"
         
         return {
-                "type" : data_[0],
-                "name" : data_[1],
-                "position" : (int(data_[2]), int(data_[3])),
-                "direction" : int(data_[4]),
-                "movable" : bool(data_[5]),
-                "message" : data_[6]
+                'type' : data_[0],
+                'name' : data_[1],
+                'position' : (int(data_[2]), int(data_[3])),
+                'direction' : int(data_[4]),
+                'movable' : bool(data_[5]),
+                'message' : data_[6]
                 }
         
     def load(self, filename):
         with open(os.path.join("../data", filename), 'r') as f:
             for line in f:
                 if line.startswith("#"): continue
-                self.events.append(self.make_data(line))
+                self.loaded_events.append(self.make_data(line.decode('utf-8')))
     
     def run(self, chara_run):
-        for event in self.events:
-            if event["type"] == "CHARA":
-                chara_run("vx_chara01_a.png", pos=event["position"], chara=(2,0), movable=event["movable"])
+        for event in self.loaded_events:
+            if event['type'] == "CHARA":
+                chara_run("vx_chara01_a.png", name=event['name'], pos=event['position'], chara=(2,0), movable=event['movable'])
+                self.events[event['name']] = {'type':"TALK", 'content':event["message"]}
+                
+    def check(self, name):
+        if self.events.has_key(name):
+            return self.events[name]
+        else: None
 
 class System(GameFrame):
     def __init__(self):
         super(System, self).__init__(GAME_TITLE, SCREEN)
+
         self.map = field.ScrollMap("map.txt")
         self.event = EventManager("event.txt")
         
-        self.map.add_chara(fc.Player("vx_chara01_a.png"), is_player=True)
+        self.map.add_chara(fc.Player("vx_chara01_a.png", name="player"), is_player=True)
         self.event.run(lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)))
-#        self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(4,3), chara=(2,0), movable=True))
-#        self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(2,1), chara=(1,1), movable=True))
-#        self.map.add_chara(fc.NPC("vx_chara01_a.png", pos=(6,3), chara=(3,1)))
+
+        self.mes_layer = layer.MessageLayer("ipag.ttf", Rect(140,334,360,140))
+
+        self.scene.transition("Field")
 
     def key_step(self):
         step = (0, 0)
@@ -108,11 +141,34 @@ class System(GameFrame):
         elif self.key[K_RIGHT]: step = (1, 0)
         elif self.key[K_LEFT]: step = (-1, 0)
         return step
+    
+    def key_z(self):
+        if self.key[K_z]:
+            info = self.map.check()
+            if info is None: return None
+        
+            ev = self.event.check(info.name)
+            if ev is None: return None
+            
+            if ev['type'] == "TALK":
+                return ev['content']
+                
+        return None
 
     def mainloop(self):
         while self._step() != -1:
-            self.map.draw(self.screen)
-            self.map.move(self.key_step())
+            ev = self.key_z()
+            if ev is not None:
+                self.scene.transition("Layer")
+
+            if self.scene.name == "Field":
+                self.map.draw(self.screen)
+                self.map.move(self.key_step())
+            elif self.scene.name == "Layer":
+                self.map.draw(self.screen)
+                self.mes_layer.draw(self.screen, ev)
+                self.scene.transition("Field")
+                
         self._quit()
 
 if __name__ == "__main__":

@@ -9,8 +9,9 @@ from utility import *
 import random
 
 class Chara(object):
-    def __init__(self, path, pos, size, offset):
+    def __init__(self, path, name, pos, size, offset):
         self.pos = pos
+        self.name = name
         self.size = Rect(0,0,size[0],size[1])
         self.direction = DOWN
         self.split_load(path, offset)
@@ -37,8 +38,8 @@ class Chara(object):
         screen.blit(self.image[self.direction][0], self.pos.to_tuple(), area=self.size)
 
 class Player(Chara):
-    def __init__(self, path, pos=(SCREEN.width/2/UNIT, SCREEN.height/2/UNIT), size=(32, 48), chara=(0,0)):
-        super(Player, self).__init__(path, pos, size, chara)
+    def __init__(self, path, name, pos=(SCREEN.width/2/UNIT, SCREEN.height/2/UNIT), size=(32, 48), chara=(0,0)):
+        super(Player, self).__init__(path, name, pos, size, chara)
         self.index = IndexMarker(4, interval=15)
         self.index.active()
         self.pos_prev = (1, 1)
@@ -56,8 +57,8 @@ class Player(Chara):
     def pos_adjust(self, offset): return offset[0]+self.pos[0], offset[1]+self.pos[1]
     
 class NPC(Player):
-    def __init__(self, path, pos=(1,1), size=(32, 48), chara=(0,0), movable=False):
-        super(NPC, self).__init__(path, pos, size, chara)
+    def __init__(self, path, name, pos=(1,1), size=(32, 48), chara=(0,0), movable=False):
+        super(NPC, self).__init__(path, name, pos, size, chara)
         self.movable = movable
         self.scroll = (0, 0)
         if self.movable:
