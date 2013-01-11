@@ -5,6 +5,7 @@ import pygame
 from pygame.locals import *
 
 import os
+import itertools
 
 SCREEN = Rect(0, 0, 640, 480)
 DOWN, LEFT, RIGHT, UP = 0, 1, 2, 3
@@ -59,6 +60,20 @@ def dir_step(direction):
     elif direction == DOWN: step = (0, 1)
     
     return step
+
+def flatten(nested_list):
+    return list(itertools.chain(*nested_list))
+
+def slice_by(seq, n):
+    new_list = []
+    for i in range(len(seq)/n+1):
+        new_list.append(seq[i*n:(i+1)*n])
+    return new_list
+
+def wise_slice(seq, n, fill=None):
+    l = len(seq)
+    if l >= n: return seq[:n]
+    else: return seq + [fill]*(n-l)
 
 class IndexMarker(object):
     def __init__(self, limit, interval=1):

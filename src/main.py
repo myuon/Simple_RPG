@@ -39,7 +39,7 @@ class GameFrame(object):
         pygame.display.set_caption(GAME_TITLE)
 
         self.screen = pygame.display.set_mode(SCREEN.size)
-        self.key = []
+        self.key = [0]*323
         self.clock=pygame.time.Clock()
         self.scene = Scene()
     
@@ -48,10 +48,15 @@ class GameFrame(object):
             if event.type==QUIT: return -1
         if self.key[K_ESCAPE]: return -1
         
+    def _key(self):
+        key = pygame.key.get_pressed()
+        for i in range(len(key)):
+            if key[i]: self.key[i] += key[i]
+            else: self.key[i] = 0
+        
     def _step(self):
         pygame.display.update()
-
-        self.key = pygame.key.get_pressed()
+        self._key()
         self.clock.tick(60)
         
         if self._event() == -1: return -1
@@ -74,6 +79,7 @@ class EventManager(Manager):
         self.load(filename)
         self.events = {}
         self.index = 0
+        self.message = u""
         
     def make_data(self, data):
         data_ = data.split(",", 7)
@@ -109,17 +115,30 @@ class EventManager(Manager):
                 if line.startswith("#"): continue
                 self.loaded_events.append(self.make_data(line.decode('utf-8')))
     
-    def run(self, chara_run):
+    def register(self, chara_register):
         for event in self.loaded_events:
             if event['type'] == "CHARA":
-                chara_run("vx_chara01_a.png", name=event['name'], pos=event['position'], chara=(2,0), movable=event['movable'])
-                self.events[event['name']] = {'type':"TALK", 'content':event["message"]}
+                name = "{0}_{1}_{2}".format(event['name'], event['position'][0], event['position'][1])
+                chara_register("vx_chara01_a.png", name=name, pos=event['position'], chara=(2,0), movable=event['movable'])
+                self.events[name] = {'type':"TALK", 'content':event["message"]}
                 
     def check(self, name):
         if self.events.has_key(name):
             return self.events[name]
         else: None
-
+    
+    def run(self, scene, map):
+        info = map.check()
+        if info is None: return None
+    
+        ev = self.check(info.name)
+        if ev is None: return None
+        
+        if ev['type'] == "TALK":
+            info.change_dir(step_dir(tuple([map.player.pos_adjust(map.offset)[i] - info.pos[i] for i in [0,1]])))
+            self.message = ev['content']
+            scene.transition("Layer")
+    
 class System(GameFrame):
     def __init__(self):
         super(System, self).__init__(GAME_TITLE, SCREEN)
@@ -128,10 +147,9 @@ class System(GameFrame):
         self.event = EventManager("event.txt")
         
         self.map.add_chara(fc.Player("vx_chara01_a.png", name="player"), is_player=True)
-        self.event.run(lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)))
+        self.event.register(lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)))
 
         self.mes_layer = layer.MessageLayer("ipag.ttf", Rect(140,334,360,140))
-
         self.scene.transition("Field")
 
     def key_step(self):
@@ -142,33 +160,18 @@ class System(GameFrame):
         elif self.key[K_LEFT]: step = (-1, 0)
         return step
     
-    def key_z(self):
-        if self.key[K_z]:
-            info = self.map.check()
-            if info is None: return None
-        
-            ev = self.event.check(info.name)
-            if ev is None: return None
-            
-            if ev['type'] == "TALK":
-                return ev['content']
-                
-        return None
-
     def mainloop(self):
         while self._step() != -1:
-            ev = self.key_z()
-            if ev is not None:
-                self.scene.transition("Layer")
-
             if self.scene.name == "Field":
                 self.map.draw(self.screen)
                 self.map.move(self.key_step())
+                if self.key[K_z] == 1: self.event.run(self.scene, self.map)
             elif self.scene.name == "Layer":
                 self.map.draw(self.screen)
-                self.mes_layer.draw(self.screen, ev)
-                self.scene.transition("Field")
-                
+                self.mes_layer.draw(self.screen, self.event.message)
+                if self.key[K_z] == 1:
+                    is_quit = self.mes_layer.next()
+                    if is_quit: self.scene.transition("Field")
         self._quit()
 
 if __name__ == "__main__":

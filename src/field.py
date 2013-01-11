@@ -124,10 +124,13 @@ class ScrollMap(Map):
         self.scroll = ScrollMarker(self.size.width, interval=1, step=4, stop=0)
         self.charas = CharaManager()
         self.event_map = MapEventManager(self.data_size[0], self.data_size[1])
+        self.player = None
 
     def add_chara(self, chara, is_player=False):
         self.charas.add(chara, is_player)
-        if is_player: self.event_map.add(chara, chara.pos_adjust(self.offset))
+        if is_player:
+            self.event_map.add(chara, chara.pos_adjust(self.offset))
+            self.player = self.charas.player
         else: self.event_map.add(chara, chara.get_pos())
 
     def draw_tip(self, screen, col, row):
@@ -149,7 +152,7 @@ class ScrollMap(Map):
                 step_ = dir_step(self.scroll.direction)
                 self.offset = self.offset[0]+step_[0], self.offset[1]+step_[1]
         else:
-            pos = tuple([self.offset[i] + step[i] + self.charas.player.pos[i] for i in [0,1]])
+            pos = tuple([self.offset[i] + step[i] + self.player.pos[i] for i in [0,1]])
             if step != (0,0) and self.is_steppable(pos):
                 self.scroll.active()
                 self.scroll.direction = step_dir(step)
@@ -163,7 +166,7 @@ class ScrollMap(Map):
         self.charas.move(step, self.offset, self.lookup_safe, self.event_map, self.scroll())
         
     def pos_gazing(self):
-        return tuple([self.offset[i] + dir_step(self.charas.player.direction)[i] + self.charas.player.pos[i] for i in [0,1]])
+        return tuple([self.offset[i] + dir_step(self.player.direction)[i] + self.player.pos[i] for i in [0,1]])
 
     def check(self):
         return self.event_map.get(self.pos_gazing())

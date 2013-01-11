@@ -76,7 +76,6 @@ class NPC(Player):
     
     def move(self, neighbors):
         self.pos_prev = self.pos
-#        print self.pos, self.move_step.direction, self.direction, self.scroll, self.move_step.enable
         if neighbors == []: return None
 
         if self.move_step.enable:
@@ -92,3 +91,6 @@ class NPC(Player):
             self.move_step.direction = neighbors
             
     def get_pos(self): return self.pos
+
+    def change_dir(self, dir):
+        self.direction = dir
