@@ -78,7 +78,7 @@ def wise_slice(seq, n, fill=None):
 class IndexMarker(object):
     def __init__(self, limit, interval=1):
         self.index = 0
-        self.max = limit
+        self.limit = limit
         self.interval = interval
         self.enable = False
         
@@ -86,16 +86,19 @@ class IndexMarker(object):
         self.index = 0
     
     def next(self):
-        self.index = (self.index+1)%(self.interval*self.max)
+        self.index = (self.index+1)%(self.interval*self.limit)
         
     def inactive(self):
         self.enable = False
         
     def active(self):
         self.enable = True
+    
+    def is_next_end(self):
+        return self.index+1 == self.interval*self.limit
 
     def __call__(self):
-        return (self.index/self.interval)%self.max
+        return (self.index/self.interval)%self.limit
 
 class DummyMarker(IndexMarker):
     def __init__(self):
@@ -124,7 +127,7 @@ class ScrollMarker(IndexMarker):
             if self.stop.index == 0: self.stop.inactive()
 
         if not self.stop.enable or isinstance(self.stop, DummyMarker):
-            self.index = (self.index+self.step)%(self.interval*self.max)
+            self.index = (self.index+self.step)%(self.interval*self.limit)
             if self.index == 0:
                 self.inactive()
                 self.stop.active()

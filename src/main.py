@@ -87,26 +87,28 @@ class EventManager(Manager):
         if data_[0] not in ["CHARA"]:
             print "received undefined type:{0}".format(data_[0])
             raise SystemExit, "Undefined Type Error"
-        if data_[2].isdigit() != True or \
-           data_[3].isdigit() != True:
+        if data_[1].isdigit() != True or \
+           data_[2].isdigit() != True or \
+           data_[3].isdigit() != True or \
+           data_[4].isdigit() != True:
             print "position x(or y) must be an integer, not:{0}({1})".format(data_[2], data_[3])
             raise SystemExit, "Type Check Error"
-        if data_[4].isdigit() != True or \
-           int(data_[4]) not in [0, 1, 2, 3]:
+        if data_[5].isdigit() != True or \
+           int(data_[5]) not in [0, 1, 2, 3]:
             print "direction must be an integer ranged 0-3, not:{0}".format(data_[4])
             raise SystemExit, "Type/Range Check Error"
-        if data_[5].isdigit() != True or \
-           int(data_[5]) not in [0, 1]:
+        if data_[6].isdigit() != True or \
+           int(data_[6]) not in [0, 1]:
             print "direction must be an integer ranged 0-1, not:{0}".format(data_[5])
             raise SystemExit, "Type/Range Check Error"
-        
+
         return {
                 'type' : data_[0],
-                'name' : data_[1],
-                'position' : (int(data_[2]), int(data_[3])),
-                'direction' : int(data_[4]),
-                'movable' : bool(data_[5]),
-                'message' : data_[6]
+                'chara' : (int(data_[1]), int(data_[2])),
+                'position' : (int(data_[3]), int(data_[4])),
+                'direction' : int(data_[5]),
+                'movable' : bool(data_[6]),
+                'message' : data_[7]
                 }
         
     def load(self, filename):
@@ -118,8 +120,8 @@ class EventManager(Manager):
     def register(self, chara_register):
         for event in self.loaded_events:
             if event['type'] == "CHARA":
-                name = "{0}_{1}_{2}".format(event['name'], event['position'][0], event['position'][1])
-                chara_register("vx_chara01_a.png", name=name, pos=event['position'], chara=(2,0), movable=event['movable'])
+                name = "{0}_{1}".format(*event['position'])
+                chara_register("vx_chara01_a.png", name=name, pos=event['position'], chara=event['chara'], movable=event['movable'])
                 self.events[name] = {'type':"TALK", 'content':event["message"]}
                 
     def check(self, name):
