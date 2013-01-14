@@ -24,6 +24,30 @@ class Layer(object):
     def active(self): self.is_visible = True
     def inactive(self): self.is_visible = False
 
+class SimpleMessageEngine(object):
+    FONT_SIZE = 18
+    LINE_HEIGHT = 6
+
+    def __init__(self, filename, rect):
+        self.size = self.FONT_SIZE
+        self.font = self.load(filename)
+        self.messages = []
+        self.rect = rect
+        self.line_height = self.LINE_HEIGHT
+        self.running = False
+        
+    def load(self, filename, directory="font"):
+        filename = get_path(filename, directory)
+        try:
+            font = pygame.font.Font(filename, self.size)
+        except pygame.error, message:
+            print "Cannot load font:", filename
+            raise SystemExit, message
+        return font
+    
+    def draw(self, screen, message, pos):
+        screen.blit(self.font.render(message, True, (255, 255, 255)), pos)
+
 class MessageEngine(object):
     FONT_SIZE = 18
     LINE_HEIGHT = 6
@@ -48,8 +72,8 @@ class MessageEngine(object):
             if key == 'line': self.index['line'] = IndexMarker(len(self.messages[self.index['page']()])+1)
             if key == 'letter': self.index['letter'] = IndexMarker(len(self.messages[self.index['page']()][self.index['line']()])+1, interval=3)
 
-    def load(self, filename):
-        filename = os.path.join("../data", filename)
+    def load(self, filename, directory="font"):
+        filename = get_path(filename, directory)
         try:
             font = pygame.font.Font(filename, self.size)
         except pygame.error, message:

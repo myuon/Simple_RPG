@@ -11,24 +11,30 @@ SCREEN = Rect(0, 0, 640, 480)
 DOWN, LEFT, RIGHT, UP = 0, 1, 2, 3
 UNIT = 32
 
-def load_image(filename, colorkey=None):
-    filename = os.path.join("../data", filename)
+def get_path(filename, directory):
+    return os.path.join("../data/{0}".format(directory), filename)
+
+def load_image(filename, colorkey=None, alpha=False, directory=None):
+    filename = get_path(filename, directory)
     try:
         image = pygame.image.load(filename)
     except pygame.error, message:
         print "Cannot load image:", filename
         raise SystemExit, message
 
-    image = image.convert()
+    if alpha: image = image.convert_alpha()
+    else: image = image.convert()
     if colorkey is not None:
         if colorkey is -1:
             colorkey = image.get_at((0,0))
         image.set_colorkey(colorkey, RLEACCEL)
     return image
 
-def split_image(image, size, times, offset):
+def split_image(image, size=(UNIT, UNIT), times=(1,1), offset=(0,0)):
     images = []
     area = image.get_size()
+    if times == -1:
+        times = area[0]/size[0], area[1]/size[1]
 
     offset = (offset[0]*size[0]*3, offset[1]*size[1]*4)
     for col in range(times[1]):
@@ -41,7 +47,6 @@ def split_image(image, size, times, offset):
             colimages.append(surface)
         images.append(colimages)
     return images
-    
 
 def step_dir(step):
     direction = None
@@ -107,12 +112,12 @@ class DummyMarker(IndexMarker):
         
     def reset(self): pass
     def next(self): pass
-    def __call__(self): return 0
+    def __call__(self): return 1
 
 class ScrollMarker(IndexMarker):
     def __init__(self, limit, interval=1, step=1, stop=100):
         super(ScrollMarker, self).__init__(limit, interval)
-        self.direction = None
+        self.direction = DOWN
         self.step = step
         self.stop = IndexMarker(stop) if stop>0 else DummyMarker()
     

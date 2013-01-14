@@ -34,11 +34,11 @@ class Scene(object):
     def name(self): return self.current
 
 class GameFrame(object):
-    def __init__(self, GAME_TITLE, SCREEN):
+    def __init__(self, title=GAME_TITLE, size=SCREEN.size):
         pygame.init()
-        pygame.display.set_caption(GAME_TITLE)
+        pygame.display.set_caption(title)
 
-        self.screen = pygame.display.set_mode(SCREEN.size)
+        self.screen = pygame.display.set_mode(size)
         self.key = [0]*323
         self.clock=pygame.time.Clock()
         self.scene = Scene()
@@ -140,12 +140,12 @@ class EventManager(Manager):
             info.change_dir(step_dir(tuple([map.player.pos_adjust(map.offset)[i] - info.pos[i] for i in [0,1]])))
             self.message = ev['content']
             scene.transition("Layer")
-    
+
 class System(GameFrame):
     def __init__(self):
-        super(System, self).__init__(GAME_TITLE, SCREEN)
+        super(System, self).__init__(title=GAME_TITLE, size=SCREEN.size)
 
-        self.map = field.ScrollMap("map.txt")
+        self.map = field.ScrollMap("field1.txt")
         self.event = EventManager("event.txt")
         
         self.map.add_chara(fc.Player("vx_chara01_a.png", name="player"), is_player=True)

@@ -5,26 +5,142 @@ import pygame
 from pygame.locals import *
 
 from functools import wraps
+import struct
+import os
 
 from utility import *
-import field_chara
+import field_chara as fc
+
+class MapEventManager(Manager):
+    def __init__(self, col, row):
+        self.data = self.make_2D_array(col, row)
+        self.data_size = col, row
+        
+    def add(self, info, pos, mode="here"): self.data[pos[1]][pos[0]] = (mode, info)
+    def change(self, pos, mode): self.add(self.get(pos)[1], pos, mode=mode)
+        
+    def delete(self, pos): self.data[pos[1]][pos[0]] = None
+    def get(self, pos): return self.data[pos[1]][pos[0]]
+    
+    def make_2D_array(self, col, row):
+        array = []
+        for i in range(col):
+            array.append([None]*row)
+        return array
+
+    def is_steppable(self,(x,y)):
+        tip = None
+        if 0 <= x < self.data_size[1] and 0 <= y < self.data_size[0]:
+            tip = self.data[y][x]
+
+        return tip is None
+    def draw(self, screen, offset, scroll):
+        for i in range(self.data_size[1]):
+            for j in range(self.data_size[0]):
+                data = self.data[j][i]
+                if data is None: continue
+                if data[0] != "here": continue
+                
+                if isinstance(data[1], fc.NPC): data[1].draw(screen, offset, scroll)
+                elif isinstance(data[1], fc.Player): data[1].draw(screen)
+
+    def update(self, pos, pos_prev):
+#        step = dir_step(self.get(pos)[1].direction)
+#        if isinstance(self.get(pos)[1], field_chara.NPC) and self.get(pos)[1].move_step.stop.enable:
+#            step = (0,0)
+
+        if pos != pos_prev:
+            print pos, pos_prev
+            self.add(self.get(pos_prev)[1], pos)
+            self.delete(pos_prev)
+
+#        pos_adjust = tuple([pos[i] + step[i] for i in [0,1]])
+#        if self.get(pos_adjust) is None or self.get(pos_adjust)[0] == "reserve":
+#            self.reserve(pos, pos_adjust)
+        
+#        if self.get(pos)[0] == "reverse":
+#            if self.get(pos_prev)[1] is not self.get(pos)[1]:
+#                print self.data
+#                print pos, pos_prev
+#                raise Exception
+#            self.change(pos, "here")
+#            self.delete(pos_prev)
+            
+    def reserve(self, pos, pos_to):
+        self.add(self.get(pos)[1], pos_to, mode="reserve")
+            
+    def normalize(self, x):
+        if x == 0: return 0
+        elif x > 0: return 1
+        else: return -1
+
 
 class Map(object):
-    def __init__(self, filename):
+    def __init__(self, filename, map_to_map=[(1,(0,0)), (0,(0,0)), (0, (0,192)), (0, (0,288)), (0, (32,0)), (1,(0,0)), (0,(0,0)), (0, (0,192)), (0, (0,288)), (0, (32,0))], map_files=["TileA1.png", "TileA2.png"], directory="map"):
         self.size = Rect(0,0,32,32)
-        self.map_to_map = [(1,(0,0)), (0,(0,0)), (0, (0,192)), (0, (0,288)), (0, (32,0))]
-        self.image = map(load_image, ["TileA1.png", "TileA2.png"])
-        self.block = [1,2,3,4]
-        self.data_size, self.default, self.data = self.load(filename)
-        
-    def load(self, filename):
+        self.map_to_map = map_to_map
+        self.image = [load_image(map_file, directory="mapchip") for map_file in map_files]
+        self.block = []
+        self.name = filename
+
+        self.data_size, self.default, self.data = None, None, None
+        self.load(filename, directory)
+
+    def insert_path(self, p, string):
+        p_ = os.path.splitext(p)
+        return "{0}_{1}{2}".format(p_[0], string, p_[1])
+
+    def load(self, filename, directory):
+        self.data_size, self.default, self.data = self.load_map(filename, directory)
+        chip_files, block = self.load_setting(filename, directory)
+        self.image, self.map_to_map = self.make_number_mapping(chip_files, directory)
+        self.block += block
+
+    def load_map(self, filename, directory):
         data = []
-        with open(os.path.join("../data", filename), 'r') as f:
-            size = map(int, f.readline().split())
+        with open(get_path(filename, directory=directory), 'r') as f:
+            info = [int(x) for x in f.readline().rstrip().split(",")]
+            size = info[1], info[0]
             default = int(f.readline())
             for line in f:
-                data.append(map(int, line.rstrip()))
+                data.append([int(x) for x in line.rstrip().split(",")])
         return size, default, data
+    
+    def load_setting(self, filename, directory):
+        data = []
+        block = []
+        with open(get_path(self.insert_path(filename, "setting"), directory=directory), 'r') as f:
+            line = f.readline()
+            for line in f:
+                if line.startswith(u"#"): continue
+                if line.startswith(u":"):
+                    block.append([int(c) for c in line[1:].rstrip().split(u",")])
+                else: data.append(line.rstrip())
+        return data, flatten(block)
+    
+    def make_number_mapping(self, fs, directory):
+        data = []
+        mapping = []
+        for f in range(len(fs)):
+            image = load_image(fs[f], directory="mapchip")
+            size = image.get_size()
+            mapping.append([(f, (x*UNIT, y*UNIT)) for y in range(size[1]/UNIT) for x in range(size[0]/UNIT)])
+            data.append(image)
+
+        return data, flatten(mapping)
+ 
+#    def load(self, filename, directory):
+#        with open(get_path(filename, directory), 'rb') as f:
+#            row = struct.unpack("i", f.read(struct.calcsize("i")))[0]
+#            col = struct.unpack("i", f.read(struct.calcsize("i")))[0]
+#            default = struct.unpack("B", f.read(struct.calcsize("B")))[0]
+#            data = [[default for c in range(col)] for r in range(row)]
+#                
+#            for r in range(row):
+#                for c in range(col):
+#                    data[r][c] = struct.unpack("B", f.read(struct.calcsize("B")))[0]
+#                    
+#        return (row, col), default, data
 
     def is_steppable(self,(x,y)):
         if 0 <= x < self.data_size[1] and 0 <= y < self.data_size[0]:
@@ -51,78 +167,12 @@ class Map(object):
         return [(x,y) for x,y in [(1,0),(-1,0),(0,1),(0,-1)] \
                       if self.is_steppable((pos[0]+x, pos[1]+y))]
 
-class CharaManager(Manager):
-    def __init__(self):
-        self.objects = []
-        self.player = None
-        
-    def add(self, chara, is_player):
-        if is_player: self.player = chara
-        else: self.objects.append(chara)
-
-    def move(self, step, offset, lookup, event_map, player_scroll):
-        event_map.update(self.player.pos_adjust(offset), self.player.pos_prev, player_scroll)
-        self.player.move(offset)
-
-        self.player.move_dir(step)
-        for i in self.objects:
-            if i.movable:
-                i.move(lookup(i.pos))
-                event_map.update(i.pos, i.pos_prev, i.scroll)
-
-class MapEventManager(Manager):
-    def __init__(self, col, row):
-        self.data = self.make_2D_array(col, row)
-        self.data_size = col, row
-        
-    def add(self, info, pos): self.data[pos[1]][pos[0]] = info
-    def delete(self, pos): self.data[pos[1]][pos[0]] = None
-    def get(self, pos): return self.data[pos[1]][pos[0]]
-    
-    def make_2D_array(self, col, row):
-        array = []
-        for i in range(col):
-            array.append([None]*row)
-        return array
-
-    def is_steppable(self,(x,y)):
-        tip = None
-        if 0 <= x < self.data_size[1] and 0 <= y < self.data_size[0]:
-            tip = self.data[y][x]
-
-        return tip == None
-
-    def draw(self, screen, offset, scroll):
-        for i in range(self.data_size[1]):
-            for j in range(self.data_size[0]):
-                data = self.data[j][i]
-                if data is None: continue
-                
-                if isinstance(data,field_chara.NPC): data.draw(screen, offset, scroll)
-                elif isinstance(data,field_chara.Player): data.draw(screen)
-
-    def update(self, pos, pos_prev, scroll):
-        scroll_norm = tuple([self.normalize(-scroll[i]) for i in [0,1]])
-        pos_adjust = tuple([pos[i] + scroll_norm[i] for i in [0,1]])
-        
-        if pos == pos_adjust != pos_prev and scroll == (0, 0):
-            self.add(self.get(pos_prev), pos)
-            self.delete(pos_prev)
-    
-    def normalize(self, x):
-        if x == 0: return 0
-        elif x > 0: return 1
-        else: return -1
-
-    def reserve(self, pos):
-        self.data[pos[1]][pos[0]] = 1
-        
 class ScrollMap(Map):
-    def __init__(self, filename, offset=(-9,-6)):
-        super(ScrollMap, self).__init__(filename)
+    def __init__(self, filename, offset=(-9,-6), directory="map"):
+        super(ScrollMap, self).__init__(filename, directory=directory)
         self.offset = offset
         self.scroll = ScrollMarker(self.size.width, interval=1, step=4, stop=0)
-        self.charas = CharaManager()
+        self.charas = fc.CharaManager()
         self.event_map = MapEventManager(self.data_size[0], self.data_size[1])
         self.player = None
 
@@ -169,5 +219,5 @@ class ScrollMap(Map):
         return tuple([self.offset[i] + dir_step(self.player.direction)[i] + self.player.pos[i] for i in [0,1]])
 
     def check(self):
-        return self.event_map.get(self.pos_gazing())
+        return self.event_map.get(self.pos_gazing())[1]
 
