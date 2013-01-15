@@ -48,6 +48,10 @@ def split_image(image, size=(UNIT, UNIT), times=(1,1), offset=(0,0)):
         images.append(colimages)
     return images
 
+def insert_path(p, string):
+    p_ = os.path.splitext(p)
+    return "{0}_{1}{2}".format(p_[0], string, p_[1])
+
 def step_dir(step):
     direction = None
     if step == (1, 0): direction = RIGHT

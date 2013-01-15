@@ -11,27 +11,28 @@ import random
 class CharaManager(Manager):
     def __init__(self):
         self.objects = []
-        self.player = None
         
     def add(self, chara, is_player):
         if is_player: self.player = chara
         else: self.objects.append(chara)
 
-    def move(self, step, offset, lookup, event_map, player_scroll):
-        event_map.update(self.player.pos_adjust(offset), self.player.pos_prev)
-        self.player.move(offset)
+    def move(self, step, player, offset, lookup, event_map):
+        player.move(offset)
 
-        self.player.move_dir(step)
+        player.move_dir(step)
         for i in self.objects:
             if i.movable:
                 i.move(lookup(i.pos))
                 event_map.update(i.pos, i.pos_prev)
 
-
+class SimpleEvent(object):
+    def __init__(self, event_id=None):
+        self.event_id = event_id
+        
 class Chara(object):
-    def __init__(self, path, name, pos, size, offset, directory="chara"):
+    def __init__(self, path, event_id, pos, size, offset, directory="chara"):
         self.pos = pos
-        self.name = name
+        self.event_id = event_id
         self.size = Rect(0,0,size[0],size[1])
         self.direction = DOWN
         self.split_load(path, offset, directory)
@@ -77,8 +78,8 @@ class Player(Chara):
     def pos_adjust(self, offset): return offset[0]+self.pos[0], offset[1]+self.pos[1]
     
 class NPC(Player):
-    def __init__(self, path, name, pos=(1,1), size=(32, 48), chara=(0,0), movable=False, directory="chara"):
-        super(NPC, self).__init__(path, name, pos, size, chara, directory=directory)
+    def __init__(self, path, event_id, pos=(1,1), size=(32, 48), chara=(0,0), movable=False, directory="chara"):
+        super(NPC, self).__init__(path, event_id, pos, size, chara, directory=directory)
         self.movable = movable
         self.scroll = (0, 0)
         if self.movable:

@@ -25,7 +25,7 @@ class MapEditor(field.ScrollMap):
         self.offset = offset
         self.scroll = ScrollMarker(self.size.width, interval=1, step=4, stop=0)
         self.charas = field.CharaManager()
-        self.event_map = field.MapEventManager(self.data_size[0], self.data_size[1])
+        self.chara_layer = field.MapEventManager(self.data_size[0], self.data_size[1])
         
         self.init()
 

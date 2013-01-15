@@ -13,58 +13,37 @@ import field_chara as fc
 
 class MapEventManager(Manager):
     def __init__(self, col, row):
-        self.data = self.make_2D_array(col, row)
+        # data :: {(Int, Int):(String, <Charactor object>)}
+        self.data = {}
         self.data_size = col, row
         
-    def add(self, info, pos, mode="here"): self.data[pos[1]][pos[0]] = (mode, info)
-    def change(self, pos, mode): self.add(self.get(pos)[1], pos, mode=mode)
-        
-    def delete(self, pos): self.data[pos[1]][pos[0]] = None
-    def get(self, pos): return self.data[pos[1]][pos[0]]
+    def add(self, info, pos, mode="here"): self.data[pos] = (mode, info)
+    def change(self, pos, mode): self.data[pos] = (mode, self.data[pos])
+
+    def delete(self, pos): del self.data[pos]        
+    def get(self, pos):
+        if self.data.has_key(pos): return self.data[pos]
+        else: return None
     
-    def make_2D_array(self, col, row):
-        array = []
-        for i in range(col):
-            array.append([None]*row)
-        return array
+    def is_steppable(self, pos):
+        info = None
+        if 0 <= pos[0] < self.data_size[1] and 0 <= pos[1] < self.data_size[0]:
+            if self.data.has_key(pos):
+                info = self.data[pos][1]
 
-    def is_steppable(self,(x,y)):
-        tip = None
-        if 0 <= x < self.data_size[1] and 0 <= y < self.data_size[0]:
-            tip = self.data[y][x]
+        return info is None or isinstance(info, fc.SimpleEvent)
 
-        return tip is None
-    def draw(self, screen, offset, scroll):
-        for i in range(self.data_size[1]):
-            for j in range(self.data_size[0]):
-                data = self.data[j][i]
-                if data is None: continue
-                if data[0] != "here": continue
-                
-                if isinstance(data[1], fc.NPC): data[1].draw(screen, offset, scroll)
-                elif isinstance(data[1], fc.Player): data[1].draw(screen)
+    def draw(self, screen, player, offset, scroll):
+        for pos, (mode, chara) in sorted(self.data.items()+[(player.pos_adjust(offset), ("here", player))]):
+            if mode != "here": continue
+            
+            if isinstance(chara, fc.NPC): chara.draw(screen, offset, scroll)
+            elif isinstance(chara, fc.Player): chara.draw(screen)
 
     def update(self, pos, pos_prev):
-#        step = dir_step(self.get(pos)[1].direction)
-#        if isinstance(self.get(pos)[1], field_chara.NPC) and self.get(pos)[1].move_step.stop.enable:
-#            step = (0,0)
-
         if pos != pos_prev:
-            print pos, pos_prev
             self.add(self.get(pos_prev)[1], pos)
             self.delete(pos_prev)
-
-#        pos_adjust = tuple([pos[i] + step[i] for i in [0,1]])
-#        if self.get(pos_adjust) is None or self.get(pos_adjust)[0] == "reserve":
-#            self.reserve(pos, pos_adjust)
-        
-#        if self.get(pos)[0] == "reverse":
-#            if self.get(pos_prev)[1] is not self.get(pos)[1]:
-#                print self.data
-#                print pos, pos_prev
-#                raise Exception
-#            self.change(pos, "here")
-#            self.delete(pos_prev)
             
     def reserve(self, pos, pos_to):
         self.add(self.get(pos)[1], pos_to, mode="reserve")
@@ -76,19 +55,15 @@ class MapEventManager(Manager):
 
 
 class Map(object):
-    def __init__(self, filename, map_to_map=[(1,(0,0)), (0,(0,0)), (0, (0,192)), (0, (0,288)), (0, (32,0)), (1,(0,0)), (0,(0,0)), (0, (0,192)), (0, (0,288)), (0, (32,0))], map_files=["TileA1.png", "TileA2.png"], directory="map"):
+    def __init__(self, filename, directory="map"):
         self.size = Rect(0,0,32,32)
-        self.map_to_map = map_to_map
-        self.image = [load_image(map_file, directory="mapchip") for map_file in map_files]
+        self.map_to_map = []
+        self.image = []
         self.block = []
         self.name = filename
 
         self.data_size, self.default, self.data = None, None, None
         self.load(filename, directory)
-
-    def insert_path(self, p, string):
-        p_ = os.path.splitext(p)
-        return "{0}_{1}{2}".format(p_[0], string, p_[1])
 
     def load(self, filename, directory):
         self.data_size, self.default, self.data = self.load_map(filename, directory)
@@ -109,7 +84,7 @@ class Map(object):
     def load_setting(self, filename, directory):
         data = []
         block = []
-        with open(get_path(self.insert_path(filename, "setting"), directory=directory), 'r') as f:
+        with open(get_path(insert_path(filename, "setting"), directory=directory), 'r') as f:
             line = f.readline()
             for line in f:
                 if line.startswith(u"#"): continue
@@ -128,28 +103,12 @@ class Map(object):
             data.append(image)
 
         return data, flatten(mapping)
- 
-#    def load(self, filename, directory):
-#        with open(get_path(filename, directory), 'rb') as f:
-#            row = struct.unpack("i", f.read(struct.calcsize("i")))[0]
-#            col = struct.unpack("i", f.read(struct.calcsize("i")))[0]
-#            default = struct.unpack("B", f.read(struct.calcsize("B")))[0]
-#            data = [[default for c in range(col)] for r in range(row)]
-#                
-#            for r in range(row):
-#                for c in range(col):
-#                    data[r][c] = struct.unpack("B", f.read(struct.calcsize("B")))[0]
-#                    
-#        return (row, col), default, data
 
     def is_steppable(self,(x,y)):
-        if 0 <= x < self.data_size[1] and 0 <= y < self.data_size[0]:
-            tip = self.data[y][x]
-        else:
-            tip = self.default
+        if not (0 <= x < self.data_size[1] and 0 <= y < self.data_size[0]):
+            return False
 
-        if tip == self.default: return False
-        else: return tip not in self.block
+        return self.data[y][x] not in self.block
     
     def draw_tip(self, screen, col, row):
         f,(x,y) = self.map_to_map[self.data[col][row]]
@@ -170,19 +129,27 @@ class Map(object):
 class ScrollMap(Map):
     def __init__(self, filename, offset=(-9,-6), directory="map"):
         super(ScrollMap, self).__init__(filename, directory=directory)
-        self.offset = offset
         self.scroll = ScrollMarker(self.size.width, interval=1, step=4, stop=0)
+        self.player = None
+
         self.charas = fc.CharaManager()
         self.event_map = MapEventManager(self.data_size[0], self.data_size[1])
-        self.player = None
+        self.offset = offset
+        
+    def create(self, filename, offset, directory="map"):
+        self.data_size, self.default, self.data = None, None, None
+        self.load(filename, directory)
+
+        self.charas = fc.CharaManager()
+        self.event_map = MapEventManager(self.data_size[0], self.data_size[1])
+        self.offset = tuple(offset[i] - SCREEN.size[i]/UNIT/2 for i in [0,1])
 
     def add_chara(self, chara, is_player=False):
         self.charas.add(chara, is_player)
         if is_player:
-            self.event_map.add(chara, chara.pos_adjust(self.offset))
-            self.player = self.charas.player
+            self.player = chara
         else: self.event_map.add(chara, chara.get_pos())
-
+        
     def draw_tip(self, screen, col, row):
         locate = self.offset[1]+col, self.offset[0]+row
         if 0 <= locate[0] < self.data_size[0] and 0 <= locate[1] < self.data_size[1]:
@@ -209,15 +176,21 @@ class ScrollMap(Map):
 
     def draw(self, screen):
         super(ScrollMap, self).draw(screen)
-        self.event_map.draw(screen, self.offset, self.scroll())
+        self.event_map.draw(screen, self.player, self.offset, self.scroll())
 
     def move(self, step):
         self.map_move(step)
-        self.charas.move(step, self.offset, self.lookup_safe, self.event_map, self.scroll())
+        self.charas.move(step, self.player, self.offset, self.lookup_safe, self.event_map)
         
     def pos_gazing(self):
         return tuple([self.offset[i] + dir_step(self.player.direction)[i] + self.player.pos[i] for i in [0,1]])
 
-    def check(self):
-        return self.event_map.get(self.pos_gazing())[1]
+    def check_gazing(self):
+        return self.get_event(self.pos_gazing())[1] if self.get_event(self.pos_gazing()) is not None else None
+    
+    def check_pos(self):
+        return self.get_event(self.player.pos_adjust(self.offset))[1] if self.get_event(self.player.pos_adjust(self.offset)) is not None else None
+
+    def get_event(self, pos):
+        return self.event_map.get(pos)
 
