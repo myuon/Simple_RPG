@@ -127,14 +127,14 @@ class Map(object):
                       if self.is_steppable((pos[0]+x, pos[1]+y))]
 
 class ScrollMap(Map):
-    def __init__(self, filename, offset=(-9,-6), directory="map"):
+    def __init__(self, filename, offset=(1,1), directory="map"):
         super(ScrollMap, self).__init__(filename, directory=directory)
         self.scroll = ScrollMarker(self.size.width, interval=1, step=4, stop=0)
         self.player = None
 
         self.charas = fc.CharaManager()
         self.event_map = MapEventManager(self.data_size[0], self.data_size[1])
-        self.offset = offset
+        self.offset = tuple(offset[i] - SCREEN.size[i]/UNIT/2 for i in [0,1])
         
     def create(self, filename, offset, directory="map"):
         self.data_size, self.default, self.data = None, None, None

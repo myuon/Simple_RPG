@@ -75,12 +75,14 @@ class GameFrame(object):
 
 class EventManager(Manager):
     def __init__(self, filename, directory="map"):
+        self.create(filename, directory)
+        
+    def create(self, filename, directory="map"):
         self.loaded_events = []
         self.load(filename, directory)
         self.a_events = {}
         self.p_events = {}
-        self.index = 0
-        self.message = u""
+        
         
     def make_data(self, data):
         data_ = data.split(",", 7)
@@ -162,16 +164,16 @@ class System(GameFrame):
         self.map = field.ScrollMap("field1.txt")
         self.map.add_chara(fc.Player("vx_chara01_a.png", name="player"), is_player=True)
         self.event = EventManager("field1.txt")
-        
-        self.create()
+        self.event.register(lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)),
+                            lambda pos, *args, **kwargs:self.map.event_map.add(fc.SimpleEvent(*args, **kwargs), pos))
         
         self.mes_layer = layer.MessageLayer("ipag.ttf", Rect(140,334,360,140))
         self.scene.transition("Field")
     
-    def create(self):
+    def create(self, filename):
+        self.event.create(filename)
         self.event.register(lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)),
                             lambda pos, *args, **kwargs:self.map.event_map.add(fc.SimpleEvent(*args, **kwargs), pos))
-
 
     def key_step(self):
         step = (0, 0)
@@ -186,11 +188,11 @@ class System(GameFrame):
             if self.scene.name == "Field":
                 self.map.draw(self.screen)
                 self.map.move(self.key_step())
+
                 if self.map.scroll.enable == False:
                     info = self.event.run(self.scene, self.map, self.key)
                     if info is not None:
-                        self.event.__init__(info)
-                        self.create()
+                        self.create(info)
 
             elif self.scene.name == "Layer":
                 self.map.draw(self.screen)
