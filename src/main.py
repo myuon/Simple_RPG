@@ -83,7 +83,6 @@ class EventManager(Manager):
         self.a_events = {}
         self.p_events = {}
         
-        
     def make_data(self, data):
         data_ = data.split(",", 7)
         
@@ -176,32 +175,31 @@ class System(GameFrame):
                             lambda pos, *args, **kwargs:self.map.event_map.add(fc.SimpleEvent(*args, **kwargs), pos))
 
     def key_step(self):
-        step = (0, 0)
-        if self.key[K_UP]: step = (0, -1)
-        elif self.key[K_DOWN]: step = (0, 1)
-        elif self.key[K_RIGHT]: step = (1, 0)
-        elif self.key[K_LEFT]: step = (-1, 0)
-        return step
+        ks_pair = {K_UP: (0, -1), K_DOWN: (0, 1), K_RIGHT: (1, 0), K_LEFT: (-1, 0)}
+        step = [ks_pair[i] for i in ks_pair if self.key[i]]
+        return step[0] if step != [] else (0,0)
     
     def mainloop(self):
-        while self._step() != -1:
-            if self.scene.name == "Field":
-                self.map.draw(self.screen)
-                self.map.move(self.key_step())
+        if self.scene.name == "Field":
+            self.map.draw(self.screen)
+            self.map.move(self.key_step())
+            if self.map.scroll.enable == False:
+                info = self.event.run(self.scene, self.map, self.key)
+                if info is not None:
+                    self.create(info)
 
-                if self.map.scroll.enable == False:
-                    info = self.event.run(self.scene, self.map, self.key)
-                    if info is not None:
-                        self.create(info)
-
-            elif self.scene.name == "Layer":
-                self.map.draw(self.screen)
-                self.mes_layer.draw(self.screen, self.event.message)
-                if self.key[K_z] == 1:
-                    is_quit = self.mes_layer.next()
-                    if is_quit: self.scene.transition("Field")
-        self._quit()
+        elif self.scene.name == "Layer":
+            self.map.draw(self.screen)
+            self.mes_layer.draw(self.screen, self.event.message)
+            if self.key[K_z] == 1:
+                is_quit = self.mes_layer.next()
+                if is_quit: self.scene.transition("Field")
+    
+    def step(self): return self._step()
+    def quit(self): return self._quit()
 
 if __name__ == "__main__":
     game = System()
-    game.mainloop()
+    while game.step() != -1:
+        game.mainloop()
+    game.quit()
