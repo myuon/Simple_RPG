@@ -9,6 +9,8 @@ from utility import *
 import field_chara as fc
 import field
 import layer
+import event
+import battle
 
 GAME_TITLE = u"GIAPRO"
 
@@ -73,106 +75,25 @@ class GameFrame(object):
         pygame.display.quit()
         pygame.quit()
 
-class EventManager(Manager):
-    def __init__(self, filename, directory="map"):
-        self.create(filename, directory)
-        
-    def create(self, filename, directory="map"):
-        self.loaded_events = []
-        self.load(filename, directory)
-        self.a_events = {}
-        self.p_events = {}
-        
-    def make_data(self, data):
-        data_ = data.split(",", 7)
-        
-        if data_[0] not in ["CHARA", "MOVE"]:
-            print "received undefined type:{0}".format(data_[0])
-            raise SystemExit, "Undefined Type Error"
-
-        if data_[0] == "CHARA":
-            return {
-                    'type' : data_[0],
-                    'chara' : (int(data_[1]), int(data_[2])),
-                    'position' : (int(data_[3]), int(data_[4])),
-                    'direction' : int(data_[5]),
-                    'movable' : bool(data_[6]),
-                    'message' : data_[7]
-                    }
-        elif data_[0] == "MOVE":
-            return {
-                    'type' : data_[0],
-                    'position' : (int(data_[1]), int(data_[2])),
-                    'map' : data_[3],
-                    'to_position' : (int(data_[4]), int(data_[5]))
-                    }
-        
-    def load(self, filename, directory):
-        with open(get_path(insert_path(filename, "event"), directory=directory), 'r') as f:
-            for line in f:
-                if line.startswith("#"): continue
-                self.loaded_events.append(self.make_data(line.decode('utf-8')))
-    
-    def register(self, chara_register, move_register):
-        for event in self.loaded_events:
-            if event['type'] == "CHARA":
-                event_id = "{0}_{1}".format(*event['position'])
-                chara_register("vx_chara01_a.png", event_id=event_id, pos=event['position'], chara=event['chara'], movable=event['movable'])
-                self.a_events[event_id] = {'type':"TALK", 'content':event["message"]}
-            elif event['type'] == "MOVE":
-                event_id = "{0}_{1}".format(*event['position'])
-                move_register(event['position'], event_id=event_id)
-                self.p_events[event_id] = {'type':"MOVE", 'map':event['map'], 'to_position':event['to_position']}
-
-    def a_check(self, event_id, key):
-        if key[K_z] == 1:
-            if self.a_events.has_key(event_id):
-                return self.a_events[event_id]
-        
-    def p_check(self, event_id, key):
-        if self.p_events.has_key(event_id):
-            return self.p_events[event_id]
-            
-    def pull_event(self, map_check, event_check, key):
-        info = map_check()
-        if info is None: return None, None
-        
-        event = event_check(info.event_id, key)
-        if event is None: return None, None
-        
-        return info, event
-            
-    def run(self, scene, scmap, key):
-        info, event = self.pull_event(scmap.check_gazing, self.a_check, key)
-        if (info, event) != (None, None):
-            if event['type'] == "TALK":
-                info.change_dir(step_dir(tuple([scmap.player.pos_adjust(scmap.offset)[i] - info.pos[i] for i in [0,1]])))
-                self.message = event['content']
-                scene.transition("Layer")
-            
-        info, event = self.pull_event(scmap.check_pos, self.p_check, key)
-        if (info, event) != (None, None):
-            if event['type'] == "MOVE":
-                scmap.create(event['map'], event['to_position'])
-                return event['map']
-
 class System(GameFrame):
     def __init__(self):
         super(System, self).__init__(title=GAME_TITLE, size=SCREEN.size)
 
         self.map = field.ScrollMap("field1.txt")
         self.map.add_chara(fc.Player("vx_chara01_a.png", name="player"), is_player=True)
-        self.event = EventManager("field1.txt")
-        self.event.register(lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)),
-                            lambda pos, *args, **kwargs:self.map.event_map.add(fc.SimpleEvent(*args, **kwargs), pos))
+        self.event = event.EventManager("field1.txt")
+        self.event.register([lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)),
+                             lambda pos, *args, **kwargs:self.map.event_map.add(fc.SimpleEvent(*args, **kwargs), pos)])
         
         self.mes_layer = layer.MessageLayer("ipag.ttf", Rect(140,334,360,140))
         self.scene.transition("Field")
-    
+        
+        self.battle = battle.BattleField()
+        
     def create(self, filename):
         self.event.create(filename)
-        self.event.register(lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)),
-                            lambda pos, *args, **kwargs:self.map.event_map.add(fc.SimpleEvent(*args, **kwargs), pos))
+        self.event.register([lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)),
+                             lambda pos, *args, **kwargs:self.map.event_map.add(fc.SimpleEvent(*args, **kwargs), pos)])
 
     def key_step(self):
         ks_pair = {K_UP: (0, -1), K_DOWN: (0, 1), K_RIGHT: (1, 0), K_LEFT: (-1, 0)}
@@ -187,6 +108,10 @@ class System(GameFrame):
                 info = self.event.run(self.scene, self.map, self.key)
                 if info is not None:
                     self.create(info)
+                
+#                self.battle.run(self.scene)
+
+            if self.map.scroll() != (0,0): self.battle.roll()
 
         elif self.scene.name == "Layer":
             self.map.draw(self.screen)
@@ -194,6 +119,9 @@ class System(GameFrame):
             if self.key[K_z] == 1:
                 is_quit = self.mes_layer.next()
                 if is_quit: self.scene.transition("Field")
+        
+        elif self.scene.name == "Battle":
+            pass            
     
     def step(self): return self._step()
     def quit(self): return self._quit()
