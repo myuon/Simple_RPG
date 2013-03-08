@@ -11,6 +11,7 @@ import field
 import layer
 import event
 import battle
+import chara
 
 GAME_TITLE = u"GIAPRO"
 
@@ -21,7 +22,8 @@ class Scene(object):
                       "Load",
                       "Field",
                       "Layer",
-                      "Battle"
+                      "Battle",
+                      "Command"
                       ]
         self.current = "None"
         
@@ -84,8 +86,11 @@ class System(GameFrame):
         self.event = event.EventManager("field1.txt")
         self.event.register([lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)),
                              lambda pos, *args, **kwargs:self.map.event_map.add(fc.SimpleEvent(*args, **kwargs), pos)])
+
+        self.player = chara.Status()
         
         self.mes_layer = layer.MessageLayer("ipag.ttf", Rect(140,334,360,140))
+        self.command = layer.LayerManager("ipag.ttf", Rect(140,334,360,140), self.player)
         self.scene.transition("Field")
         
         self.battle = battle.BattleField()
@@ -121,7 +126,14 @@ class System(GameFrame):
                 if is_quit: self.scene.transition("Field")
         
         elif self.scene.name == "Battle":
-            pass            
+            pass
+        
+        elif self.scene.name == "Command":
+            self.map.draw(self.screen)
+            self.command.draw(self.screen)
+            run = self.command.input(self.key, self.scene)
+            if run is not None:
+                run(self)
     
     def step(self): return self._step()
     def quit(self): return self._quit()

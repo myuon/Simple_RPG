@@ -84,6 +84,35 @@ def wise_slice(seq, n, fill=None):
     if l >= n: return seq[:n]
     else: return seq + [fill]*(n-l)
 
+class Bounded(object):
+    def __init__(self, limit, is_infinite=False):
+        self._index = 0
+        self.limit = limit
+        self.is_infinite = is_infinite
+    
+    def next(self):
+        self._index += 1
+        if self._index+1 >= self.limit:
+            if self.is_infinite: self._index = 0
+            else: self._index = self.limit-1
+            
+    def back(self):
+        self._index -= 1
+        if self._index < 0:
+            if self.is_infinite: self._index = self.limit-1
+            else: self._index = 0
+
+    def getter(self): return self._index
+
+    def setter(self, n):
+        if 0 <= n <= self.limit:
+            self._index = n
+        else:
+            print "accessed self._index["+str(n)+"]"
+            raise SystemExit, "Out of range Error"
+        
+    index = property(getter, setter)
+
 class IndexMarker(object):
     def __init__(self, limit, interval=1):
         self.index = 0

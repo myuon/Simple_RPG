@@ -51,6 +51,16 @@ class MoveEvent(Event):
         fun(self._info['position'], event_id=event_id)
         return "p_events", event_id, {'type':"MOVE", 'map':self._info['map'], 'to_position':self._info['to_position']}
 
+class ItemEvent(Event):
+    def __init__(self, data):
+        super(ItemEvent, self).__init__()
+        self._update({
+                     'type': data[0],
+                     'position': (int(data[1]), int(data[2])),
+                     'index': data[3],
+                     'maptip': (int(data[4]), int(data[5])),
+                     })
+
 class EventManager(Manager):
     def __init__(self, filename, directory="map"):
         self.kind = ["CHARA", "MOVE"]
@@ -88,9 +98,8 @@ class EventManager(Manager):
                 self.p_events[event_id] = dic
 
     def a_check(self, event_id, key):
-        if key[K_z] == 1:
-            if self.a_events.has_key(event_id):
-                return self.a_events[event_id]
+        if key[K_z] == 1 and self.a_events.has_key(event_id):
+            return self.a_events[event_id]
         
     def p_check(self, event_id, key):
         if self.p_events.has_key(event_id):
@@ -104,18 +113,38 @@ class EventManager(Manager):
         if event is None: return None, None
         
         return info, event
+    
+    def look(self, scene, scmap):
+        info, event = self.pull_event(scmap.check_gazing, self.a_check, {'K_z': 1})
+        if info is not None and event is not None:
+            if event['type'] == "TALK":
+                info.change_dir(step_dir(tuple([scmap.player.pos_adjust(scmap.offset)[i] - info.pos[i] for i in [0,1]])))
+                self.message = event['content']
+                scene.transition("Layer")
+                return scmap.check_pos
+        
+        return None
         
     def run(self, scene, scmap, key):
         info, event = self.pull_event(scmap.check_gazing, self.a_check, key)
-        if (info, event) != (None, None):
+        if info is not None and event is not None:
             if event['type'] == "TALK":
                 info.change_dir(step_dir(tuple([scmap.player.pos_adjust(scmap.offset)[i] - info.pos[i] for i in [0,1]])))
                 self.message = event['content']
                 scene.transition("Layer")
             
         info, event = self.pull_event(scmap.check_pos, self.p_check, key)
-        if (info, event) != (None, None):
+        if info is not None and event is not None:
             if event['type'] == "MOVE":
                 scmap.create(event['map'], event['to_position'])
                 return event['map']
+        
+        if key[K_z] == 1 and scene.name == "Field":
+            scene.transition("Command")
+            return
+        
+        return None
 
+    def announce(self, scene, message):
+        self.message = message
+        scene.transition("Layer")
