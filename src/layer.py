@@ -1,8 +1,8 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
 
-import pygame
-from pygame.locals import *
+#import pygame
+#from pygame.locals import *
 
 from utility import *
 
@@ -75,8 +75,8 @@ class MessageEngine(SimpleMessageEngine):
                 raise SystemExit, "Key Error"
     
             if key == 'page': self.index['page'] = IndexMarker(len(self.messages)+1)
-            if key == 'line': self.index['line'] = IndexMarker(len(self.messages[self.index['page']()])+1)
-            if key == 'letter': self.index['letter'] = IndexMarker(len(self.messages[self.index['page']()][self.index['line']()])+1, interval=3)
+            if key == 'line': self.index['line'] = IndexMarker(len(self.messages[self.index['page'].pos])+1)
+            if key == 'letter': self.index['letter'] = IndexMarker(len(self.messages[self.index['page'].pos][self.index['line'].pos])+1, interval=3)
 
     def max_charactors(self, message):
         for i in range(1, len(message)):
@@ -97,11 +97,11 @@ class MessageEngine(SimpleMessageEngine):
 
     def indexes_areas(self):
         areas = []
-        for i in range(len(self.messages[self.index['page']()])):
-            if i < self.index['line']():
+        for i in range(len(self.messages[self.index['page'].pos])):
+            if i < self.index['line'].pos:
                 areas.append(Rect(0, 0, self.rect.width, self.font.get_height()))
-            elif i == self.index['line']():
-                areas.append(Rect((0, 0), self.font.size(self.messages[self.index['page']()][i][:self.index['letter']()])))
+            elif i == self.index['line'].pos:
+                areas.append(Rect((0, 0), self.font.size(self.messages[self.index['page'].pos][i][:self.index['letter'].pos])))
             else:
                 areas.append(Rect(0, 0, 0, 0))
         return areas
@@ -114,8 +114,8 @@ class MessageEngine(SimpleMessageEngine):
     def draw(self, screen, message, pos):
         if self.running == False: self.init(message)
         areas = self.indexes_areas()
-        for i in range(len(self.messages[self.index['page']()])):
-            screen.blit(self.font.render(self.messages[self.index['page']()][i], True, (255, 255, 255)), (pos[0], pos[1]+(self.font.get_height()+self.line_height)*i), area=areas[i])
+        for i in range(len(self.messages[self.index['page'].pos])):
+            screen.blit(self.font.render(self.messages[self.index['page'].pos][i], True, (255, 255, 255)), (pos[0], pos[1]+(self.font.get_height()+self.line_height)*i), area=areas[i])
 
         if self.waiting:
             screen.blit(self.font.render(u"▽", True, (255, 255, 255)), (pos[0]+self.rect.width/2-self.font.size("▽")[0]/2, pos[1]+self.rect.height-self.font.get_height()))
@@ -313,9 +313,11 @@ class LayerManager(object):
                 scene.transition("Field")
 
                 def look(cls):
-                    get_pos = cls.event.look(cls.scene, cls.map)
-                    if get_pos is None:
+                    info = cls.event.look(cls.scene, cls.map)
+                    if info is None:
                         cls.event.announce(cls.scene, u"とくに何も見つからなかった。")
+                    else:
+                        cls.event.announce(cls.scene, u"アイテム番号 {0:03d}を発見した！".format(info['index']))
                 return look
         elif cls is not None:
             self.set_focus(cls)

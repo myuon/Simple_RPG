@@ -1,8 +1,8 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
 
-import pygame
-from pygame.locals import *
+#import pygame
+#from pygame.locals import *
 
 from utility import *
 
@@ -44,9 +44,12 @@ class GameFrame(object):
 
         self.screen = pygame.display.set_mode(size)
         self.key = [0]*323
-        self.clock=pygame.time.Clock()
+        self.clock = pygame.time.Clock()
         self.scene = Scene()
-    
+        self.between = 0
+        
+        self.count = 0
+        
     def _event(self):
         for event in pygame.event.get():
             if event.type==QUIT: return -1
@@ -59,13 +62,16 @@ class GameFrame(object):
             else: self.key[i] = 0
         
     def _step(self):
-        pygame.display.update()
+        self.count += 1
         self._key()
         self.clock.tick(60)
+        self.between = self.clock.get_time()
+        pygame.display.set_caption(GAME_TITLE+"({0})".format(int(self.clock.get_fps())))
         
         if self._event() == -1: return -1
 
-        self.screen.fill((0,0,60))
+#        self.screen.fill((0,0,60))
+        pygame.display.flip()
         return 0
         
     def mainloop(self):
@@ -84,8 +90,8 @@ class System(GameFrame):
         self.map = field.ScrollMap("field1.txt")
         self.map.add_chara(fc.Player("vx_chara01_a.png", name="player"), is_player=True)
         self.event = event.EventManager("field1.txt")
-        self.event.register([lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)),
-                             lambda pos, *args, **kwargs:self.map.event_map.add(fc.SimpleEvent(*args, **kwargs), pos)])
+        self.create("field1.txt")
+        self.event.register(self.map)
 
         self.player = chara.Status()
         
@@ -97,8 +103,7 @@ class System(GameFrame):
         
     def create(self, filename):
         self.event.create(filename)
-        self.event.register([lambda *args, **kwargs:self.map.add_chara(fc.NPC(*args, **kwargs)),
-                             lambda pos, *args, **kwargs:self.map.event_map.add(fc.SimpleEvent(*args, **kwargs), pos)])
+        self.event.register(self.map)
 
     def key_step(self):
         ks_pair = {K_UP: (0, -1), K_DOWN: (0, 1), K_RIGHT: (1, 0), K_LEFT: (-1, 0)}
@@ -107,7 +112,8 @@ class System(GameFrame):
     
     def mainloop(self):
         if self.scene.name == "Field":
-            self.map.draw(self.screen)
+            if self.count % 3 >= 0:
+                self.map.draw(self.screen)
             self.map.move(self.key_step())
             if self.map.scroll.enable == False:
                 info = self.event.run(self.scene, self.map, self.key)
@@ -116,7 +122,7 @@ class System(GameFrame):
                 
 #                self.battle.run(self.scene)
 
-            if self.map.scroll() != (0,0): self.battle.roll()
+            if self.map.scroll.pos != (0,0): self.battle.roll()
 
         elif self.scene.name == "Layer":
             self.map.draw(self.screen)

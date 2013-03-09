@@ -135,8 +135,8 @@ class IndexMarker(object):
     def is_next_end(self):
         return self.index+1 == self.interval*self.limit
 
-    def __call__(self):
-        return (self.index/self.interval)%self.limit
+    @property
+    def pos(self): return (int(self.index/self.interval))%self.limit
 
 class DummyMarker(IndexMarker):
     def __init__(self):
@@ -145,7 +145,9 @@ class DummyMarker(IndexMarker):
         
     def reset(self): pass
     def next(self): pass
-    def __call__(self): return 1
+
+    @property
+    def pos(self): return 1
 
 class ScrollMarker(IndexMarker):
     def __init__(self, limit, interval=1, step=1, stop=100):
@@ -154,8 +156,9 @@ class ScrollMarker(IndexMarker):
         self.step = step
         self.stop = IndexMarker(stop) if stop>0 else DummyMarker()
     
-    def __call__(self):
-        idx = super(ScrollMarker, self).__call__()
+    @property
+    def pos(self):
+        idx = super(ScrollMarker, self).pos
         sx, sy = dir_step(self.direction)
         return (-sx)*idx, (-sy)*idx
     

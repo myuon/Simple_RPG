@@ -1,10 +1,10 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
 
-import pygame
-from pygame.locals import *
+#import pygame
+#from pygame.locals import *
 
-from utility import *
+#from utility import *
 
 class ToolBox(object):
     def __init__(self):

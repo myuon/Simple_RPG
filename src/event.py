@@ -1,10 +1,12 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
 
-import pygame
-from pygame.locals import *
+#import pygame
+#from pygame.locals import *
 
 from utility import *
+
+import field_chara as fc
 
 class Event(object):
     def __init__(self):
@@ -31,9 +33,9 @@ class NPCTalkEvent(Event):
                      'message': data[7],
                      })
     
-    def register(self, fun):
+    def register(self, scmap):
         event_id = "{0}_{1}".format(*self._info['position'])
-        fun("vx_chara01_a.png", event_id=event_id, pos=self._info['position'], chara=self._info['chara'], movable=self._info['movable'])
+        scmap.add_chara(fc.NPC("vx_chara01_a.png", event_id=event_id, pos=self._info['position'], chara=self._info['chara'], movable=self._info['movable']))
         return "a_events", event_id, {'type':"TALK", 'content':self._info["message"]}
     
 class MoveEvent(Event):
@@ -46,9 +48,10 @@ class MoveEvent(Event):
                      'to_position': (int(data[4]), int(data[5])),
                      })
 
-    def register(self, fun):
+    def register(self, scmap):
         event_id = "{0}_{1}".format(*self._info['position'])
-        fun(self._info['position'], event_id=event_id)
+#        fun(self._info['position'], event_id=event_id)
+        scmap.event_map.add(fc.SimpleEvent(event_id=event_id), self._info['position'])
         return "p_events", event_id, {'type':"MOVE", 'map':self._info['map'], 'to_position':self._info['to_position']}
 
 class ItemEvent(Event):
@@ -57,13 +60,18 @@ class ItemEvent(Event):
         self._update({
                      'type': data[0],
                      'position': (int(data[1]), int(data[2])),
-                     'index': data[3],
-                     'maptip': (int(data[4]), int(data[5])),
+                     'index': int(data[3])
                      })
+
+    def register(self, scmap):
+        event_id = "{0}_{1}".format(*self._info['position'])
+#        fun(self._info['position'], event_id=event_id)
+        scmap.event_map.add(fc.SimpleEvent(event_id=event_id), self._info['position'])
+        return "p_events", event_id, {'type':"ITEM", 'index':self._info['index']}
 
 class EventManager(Manager):
     def __init__(self, filename, directory="map"):
-        self.kind = ["CHARA", "MOVE"]
+        self.kind = ["CHARA", "MOVE", "ITEM"]
         self.create(filename, directory)
         
     def create(self, filename, directory="map"):
@@ -74,12 +82,12 @@ class EventManager(Manager):
         
     def make_data(self, data):
         data_ = data.split(",", 7)
-        pair = dict(zip(self.kind, [NPCTalkEvent, MoveEvent]))
+        pair = dict(zip(self.kind, [NPCTalkEvent, MoveEvent, ItemEvent]))
         
         if data_[0] not in self.kind:
             print "received undefined type:{0}".format(data_[0])
             raise SystemExit, "Undefined Type Error"
-        
+
         return pair[data_[0]](data_)
 
     def load(self, filename, directory):
@@ -88,10 +96,10 @@ class EventManager(Manager):
                 if line.startswith("#"): continue
                 self.loaded_events.append(self.make_data(line.decode('utf-8')))
     
-    def register(self, registers):
-        pair = dict(zip(self.kind, registers))
+    def register(self, scmap):
+#        pair = dict(zip(self.kind, registers))
         for event in self.loaded_events:
-            aorp, event_id, dic = event.register(pair[event.info['type']])
+            aorp, event_id, dic = event.register(scmap)
             if aorp == "a_events":
                 self.a_events[event_id] = dic
             elif aorp == "p_events":
@@ -115,13 +123,10 @@ class EventManager(Manager):
         return info, event
     
     def look(self, scene, scmap):
-        info, event = self.pull_event(scmap.check_gazing, self.a_check, {'K_z': 1})
+        info, event = self.pull_event(scmap.check_pos, self.p_check, {'K_z': 1})
         if info is not None and event is not None:
-            if event['type'] == "TALK":
-                info.change_dir(step_dir(tuple([scmap.player.pos_adjust(scmap.offset)[i] - info.pos[i] for i in [0,1]])))
-                self.message = event['content']
-                scene.transition("Layer")
-                return scmap.check_pos
+            if event['type'] == "ITEM":
+                return event
         
         return None
         

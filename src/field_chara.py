@@ -1,8 +1,8 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
 
-import pygame
-from pygame.locals import *
+#import pygame
+#from pygame.locals import *
 
 from utility import *
 
@@ -69,7 +69,7 @@ class Player(Chara):
     def locate(self): return self.pixel_pos()[0], self.pixel_pos()[1]-UNIT/2
 
     def draw(self, screen):
-        screen.blit(self.image[self.direction][self.index()], self.locate(), area=self.size)
+        screen.blit(self.image[self.direction][self.index.pos], self.locate(), area=self.size)
         self.index.next()
         
     def move(self, offset):
@@ -90,7 +90,7 @@ class NPC(Player):
 
     def draw(self, screen, offset, scroll):
         direction = self.direction if self.direction is not None else DOWN
-        screen.blit(self.image[direction][self.index()], tuple([self.locate(offset)[i]+scroll[i] for i in [0,1]]), area=self.size)
+        screen.blit(self.image[direction][self.index.pos], tuple([self.locate(offset)[i]+scroll[i] for i in [0,1]]), area=self.size)
         self.index.next()
 
     def pixel_pos(self, offset): return (self.pos[0]-offset[0])*UNIT, (self.pos[1]-offset[1])*UNIT
@@ -109,13 +109,13 @@ class NPC(Player):
             if self.move_step.next() == False:
                 sx, sy = dir_step(self.direction)
                 self.pos = self.pos[0]+sx, self.pos[1]+sy
-            self.scroll = self.move_step()
+            self.scroll = self.move_step.pos
         else:
             self.move_step.active()
             self.move_step.direction = neighbors
             
     def get_pos(self): return self.pos
 
-    def change_dir(self, dir):
-        self.direction = dir
+    def change_dir(self, direc):
+        self.direction = direc
 

@@ -1,12 +1,8 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
 
-import pygame
-from pygame.locals import *
-
-from functools import wraps
-import struct
-import os
+#import pygame
+#from pygame.locals import *
 
 from utility import *
 import field_chara as fc
@@ -41,8 +37,9 @@ class MapEventManager(Manager):
             elif isinstance(chara, fc.Player): chara.draw(screen)
 
     def update(self, pos, pos_prev):
-        if pos != pos_prev:
-            self.add(self.get(pos_prev)[1], pos)
+        prev = self.get(pos_prev)
+        if pos != pos_prev and prev is not None:
+            self.add(prev[1], pos)
             self.delete(pos_prev)
             
     def reserve(self, pos, pos_to):
@@ -53,73 +50,103 @@ class MapEventManager(Manager):
         elif x > 0: return 1
         else: return -1
 
-
-class Map(object):
+class MapInfo(object):
     def __init__(self, filename, directory="map"):
-        self.size = Rect(0,0,32,32)
-        self.map_to_map = []
-        self.image = []
-        self.block = []
-        self.name = filename
+        self._info = {}
+#        self.load(filename, directory)
 
-        self.data_size, self.default, self.data = None, None, None
-        self.load(filename, directory)
+    @property
+    def chip_size(self): return self._info["chip_size"]
+    @property
+    def map_size(self): return self._info["size"]
+    @property
+    def layer(self): return self._info["layer"]
+    
+    def chip_image(self, n): return self._info["data"][n]["image"]
+    def n_block(self, n): return self._info["data"][n]["block"]
+    def n_default(self, n): return self._info["data"][n]["default"]
+    def n_data(self, n): return self._info["data"][n]["raw"]
+    
+    def chip(self, n, (x,y)): return self._info["data"][n]["raw"][y][x]
+
+    def map_header(self, data):
+        self._info.update({"size":  (int(data[0]), int(data[1])),
+                           "chip_size": Rect(0, 0, int(data[2]), int(data[3])),
+                           "layer": int(data[4]),
+                           "data": []})
+    
+    def layer_header(self, data):
+        image = self.load_mapchip(data[0])
+        size = image.get_size()
+        self._info["data"].append({"image": image,
+                                   "image_chip_size": tuple(size[i]/self._info["chip_size"][i+2] for i in [0,1]),
+                                   "block": data[1],
+                                   "default": data[2],
+                                   "raw": []})
 
     def load(self, filename, directory):
-        self.data_size, self.default, self.data = self.load_map(filename, directory)
-        chip_files, block = self.load_setting(filename, directory)
-        self.image, self.map_to_map = self.make_number_mapping(chip_files, directory)
-        self.block += block
+        self.load_map(filename, directory)
 
     def load_map(self, filename, directory):
-        data = []
         with open(get_path(filename, directory=directory), 'r') as f:
             info = [int(x) for x in f.readline().rstrip().split(",")]
-            size = info[1], info[0]
-            default = int(f.readline())
-            for line in f:
-                data.append([int(x) for x in line.rstrip().split(",")])
-        return size, default, data
-    
-    def load_setting(self, filename, directory):
-        data = []
-        block = []
-        with open(get_path(insert_path(filename, "setting"), directory=directory), 'r') as f:
-            line = f.readline()
-            for line in f:
-                if line.startswith(u"#"): continue
-                if line.startswith(u":"):
-                    block.append([int(c) for c in line[1:].rstrip().split(u",")])
-                else: data.append(line.rstrip())
-        return data, flatten(block)
-    
-    def make_number_mapping(self, fs, directory):
-        data = []
-        mapping = []
-        for f in range(len(fs)):
-            image = load_image(fs[f], directory="mapchip")
-            size = image.get_size()
-            mapping.append([(f, (x*UNIT, y*UNIT)) for y in range(size[1]/UNIT) for x in range(size[0]/UNIT)])
-            data.append(image)
+            self.map_header(info)
 
-        return data, flatten(mapping)
+            for n in range(self.layer):
+                data = []
+                filename = f.readline().strip()
+                block = [int(c) for c in f.readline().rstrip().split(u",")]
+                default = int(f.readline())
+                self.layer_header([filename, block, default])
+
+                for i in range(self._info["size"][1]):
+                    data.append([int(x) for x in f.readline().rstrip().split(",")])
+                self._info["data"][n]["raw"] = data
+
+    def load_mapchip(self, filename, directory="mapchip"):
+        return load_image(filename, directory=directory, colorkey=-1)
+    
+    def chip_number_pos(self, number, layer):
+        chip_size = self._info["data"][layer]["image_chip_size"]
+        return number%chip_size[0]*self._info["chip_size"].width, int(number/chip_size[1])*self._info["chip_size"].height
+#        return tuple([number%chip_size[0], int(number/chip_size[1])][i]*self._info["chip_size"].bottomright[i] for i in [0,1])
+    
+class Map(object):
+    def __init__(self, filename, directory="map"):
+        self.map = MapInfo(filename, directory="map")
 
     def is_steppable(self,(x,y)):
-        if not (0 <= x < self.data_size[1] and 0 <= y < self.data_size[0]):
+        if not (0 <= x < self.map.map_size[0] and 0 <= y < self.map.map_size[1]):
             return False
+        
+        for n in range(self.map.layer):
+            if self.map.chip(n, (x,y)) in self.map.n_block(n): return False
 
-        return self.data[y][x] not in self.block
-    
-    def draw_tip(self, screen, col, row):
-        f,(x,y) = self.map_to_map[self.data[col][row]]
-        screen.blit(self.image[f], (row*self.size.width, col*self.size.height), area=self.size.move(x,y))
+        return True
+
+    def draw_tip(self, screen, layer, col, row):
+        chip = self.get_chip(layer, col, row)
+        if layer == 0 or chip != self.n_default:
+            screen.blit(self.map.chip_image(layer), (col*self.map.chip_size.width, row*self.map.chip_size.height), area=self.map.chip_size.move(self.map.chip_number_pos(chip, layer)))
+
+    def get_chip(self, layer, col, row):
+        if 0 <= col < self.map.map_size[0] and 0 <= row < self.map.map_size[1]:
+            chip = self.map.chip(layer, (col, row))
+        else:
+            chip = self.map.n_default(layer)
+        
+        return chip
 
     def draw(self, screen):
-        for col in range(self.data_size[0]+2):
-            for row in range(self.data_size[1]+2):
-                self.draw_tip(screen, col-1, row-1)
-                
-    def block_pos(self,(x,y)):
+        for layer in range(self.map.layer):
+            [self.draw_tip(screen, layer, col-1, row-1)
+             for col in xrange(self.map.map_size[0]+2)
+             for row in xrange(self.map.map_size[1]+2)]
+#            for col in range(self.map.map_size[0]+2):
+#                for row in range(self.map.map_size[1]+2):
+#                    self.draw_tip(screen, layer, col-1, row-1)
+    
+    def block_pos(self, (x,y)):
         return x/self.size.width, y/self.size.height
     
     def lookup_safe(self, pos):
@@ -129,19 +156,14 @@ class Map(object):
 class ScrollMap(Map):
     def __init__(self, filename, offset=(1,1), directory="map"):
         super(ScrollMap, self).__init__(filename, directory=directory)
-        self.scroll = ScrollMarker(self.size.width, interval=1, step=4, stop=0)
+        self.create(filename, offset, directory)
+        self.scroll = ScrollMarker(self.map.chip_size.width, interval=1, step=4, stop=0)
         self.player = None
-
-        self.charas = fc.CharaManager()
-        self.event_map = MapEventManager(self.data_size[0], self.data_size[1])
-        self.offset = tuple(offset[i] - SCREEN.size[i]/UNIT/2 for i in [0,1])
         
     def create(self, filename, offset, directory="map"):
-        self.data_size, self.default, self.data = None, None, None
-        self.load(filename, directory)
-
+        self.map.load(filename, directory)
         self.charas = fc.CharaManager()
-        self.event_map = MapEventManager(self.data_size[0], self.data_size[1])
+        self.event_map = MapEventManager(*self.map.map_size)
         self.offset = tuple(offset[i] - SCREEN.size[i]/UNIT/2 for i in [0,1])
 
     def add_chara(self, chara, is_player=False):
@@ -150,15 +172,13 @@ class ScrollMap(Map):
             self.player = chara
         else: self.event_map.add(chara, chara.get_pos())
         
-    def draw_tip(self, screen, col, row):
-        locate = self.offset[1]+col, self.offset[0]+row
-        if 0 <= locate[0] < self.data_size[0] and 0 <= locate[1] < self.data_size[1]:
-            tip = self.data[locate[0]][locate[1]]
-        else:
-            tip = self.default
-        f,(x,y) = self.map_to_map[tip]
-        px, py = self.scroll()
-        screen.blit(self.image[f], (row*self.size.width+px, col*self.size.height+py), area=self.size.move(x,y))
+    def draw_tip(self, screen, layer, col, row):
+        locate = self.offset[0]+col, self.offset[1]+row
+        chip = self.get_chip(layer, *locate)
+        if layer != 0 and chip == self.map.n_default(layer): return
+
+        px, py = self.scroll.pos
+        screen.blit(self.map.chip_image(layer), (col*self.map.chip_size.width+px, row*self.map.chip_size.height+py), area=self.map.chip_size.move(self.map.chip_number_pos(chip, layer)))
 
     def is_steppable(self,(x,y)):
         return super(ScrollMap, self).is_steppable((x,y)) and self.event_map.is_steppable((x, y))
@@ -176,7 +196,7 @@ class ScrollMap(Map):
 
     def draw(self, screen):
         super(ScrollMap, self).draw(screen)
-        self.event_map.draw(screen, self.player, self.offset, self.scroll())
+        self.event_map.draw(screen, self.player, self.offset, self.scroll.pos)
 
     def move(self, step):
         self.map_move(step)

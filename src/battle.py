@@ -1,10 +1,9 @@
 #! /usr/bin/python
 # -*- coding:utf-8 -*-
 
-import pygame
-from pygame.locals import *
+#import pygame
+#from pygame.locals import *
 
-import utility
 import random
 
 class BattleField(object):
